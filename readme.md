@@ -1,21 +1,23 @@
-# WebSocket Server demo project 
+ # Scotland Yard Server
 
-This repository contains two implementations for WebSocket communication in Java Spring Boot. The first implementation utilizes a broker with STOMP protocol in the package `at.aau.serg.websocketdemoserver.websocket.broker`, and the second implementation uses a basic WebSocket handler in the package `at.aau.serg.websocketdemoserver.websocket.handler`. Additionally, integration tests have been provided for each implementation.
+Server in Java für das Spiel Scotland Yard – [621.252] SE2 Gruppe 2.
+Basierend auf dem bereitgestellten [Demo Projekt](https://github.com/AAU-SE2/WebSocketDemo-Server).
 
-## Broker Implementation with STOMP Protocol
+## CI/CD
 
-The `at.aau.serg.websocketdemoserver.websocket.broker` package contains a WebSocket implementation that utilizes a broker with the STOMP protocol. STOMP (Simple Text Oriented Messaging Protocol) is a lightweight messaging protocol that defines the format and rules for data exchange. 
+GitHub Actions führt bei jedem Push auf `main` automatisch aus:
+1. Build
+2. Unit Tests + Coverage Report
+3. SonarCube und SonarCloud Scan
 
-To explore the code for the broker implementation, navigate to the `at.aau.serg.websocketdemoserver.websocket.broker` package [here](./src/main/java/at/aau/serg/websocketdemoserver/websocket/broker).
+## Branch-Workflow
 
-## Basic WebSocket Handler Implementation
+- Branches: `<branchTyp>/<beschreibung>`
+- Commit-Convention: `<[#IssueNummer falls vorhanden]> <typ> <beschreibung>`
+- Merges nur via Pull Request (kein Squash/Rebase)
+- `main` ist protected und muss jederzeit lauffähig sein
 
-The `at.aau.serg.websocketdemoserver.websocket.handler` package contains a basic WebSocket implementation that utilizes a simple WebSocket handler. This implementation is straightforward and suitable for scenarios where a lightweight solution is preferred without the overhead of a full-fledged broker like STOMP.
-
-To explore the code for the basic WebSocket handler implementation, navigate to the `at.aau.serg.websocketdemoserver.websocket.handler` package [here](./src/main/java/at/aau/serg/websocketdemoserver/websocket/handler).
-
-## Integration Tests
-
-Integration tests have been provided for both implementations. These tests focus on understanding the functionality of connecting, sending, and receiving messages via WebSocket communication. They serve as valuable resources for understanding how to effectively use WebSocket communication in Spring Boot applications.
-
-To explore the integration tests, navigate to the respective test classes for the broker and handler implementations.
+## Zusätzliche Resourcen
+- [GitHub Markdown Guide](https://guides.github.com/features/mastering-markdown/) 
+- [Git Cheat Sheet](https://education.github.com/git-cheat-sheet-education.pdf)
+- [How to Use Git Branches](https://git-scm.com/book/en/v2/Git-Branching-Basic-Branching-and-Merging)
