@@ -5,5 +5,5 @@ public enum TicketType {
     ESCOOTER,
     CARSHARING,
     BLACK,
-    DOUBLE;
+    DOUBLE
 }
