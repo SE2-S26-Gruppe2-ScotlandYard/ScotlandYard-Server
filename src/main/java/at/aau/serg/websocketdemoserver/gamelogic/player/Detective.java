@@ -1,5 +1,6 @@
 package at.aau.serg.websocketdemoserver.gamelogic.player;
 
+import java.util.Collections;
 import java.util.EnumMap;
 import java.util.Map;
 
@@ -27,7 +28,7 @@ public class Detective extends Player{
     @Override
     public Map<TicketType, Integer> getTickets() {
         // Return a protected copy.
-        return new EnumMap<>(tickets);
+        return Collections.unmodifiableMap(tickets);
     }
 
     @Override
