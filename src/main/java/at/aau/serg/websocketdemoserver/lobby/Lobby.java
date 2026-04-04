@@ -1,4 +1,4 @@
-package at.aau.serg.websocketdemoserver.gamelogic.lobby;
+package at.aau.serg.websocketdemoserver.lobby;
 
 import java.util.*;
 
