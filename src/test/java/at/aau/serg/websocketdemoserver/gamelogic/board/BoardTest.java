@@ -23,7 +23,6 @@ class BoardTest {
         Map<Integer, Station> stations = board.getStations();
         assertNotNull(stations);
         assertFalse(stations.isEmpty());
-        // Assuming there are 199 stations in board.json
         assertEquals(199, stations.size());
     }
 
