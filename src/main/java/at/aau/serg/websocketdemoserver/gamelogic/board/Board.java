@@ -37,6 +37,10 @@ public class Board {
         }
     }
 
+    public Station getStation(int number) {
+        return stations.get(number);
+    }
+
     public Map<Integer, Station> getStations() {
         return Collections.unmodifiableMap(stations);
     }
