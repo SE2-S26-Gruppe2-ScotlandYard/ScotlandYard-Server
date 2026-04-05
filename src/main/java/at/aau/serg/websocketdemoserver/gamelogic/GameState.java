@@ -7,7 +7,6 @@ import java.util.Random;
 
 import at.aau.serg.websocketdemoserver.gamelogic.board.Board;
 import at.aau.serg.websocketdemoserver.gamelogic.board.Connection;
-import at.aau.serg.websocketdemoserver.gamelogic.board.Station;
 import at.aau.serg.websocketdemoserver.gamelogic.player.Detective;
 import at.aau.serg.websocketdemoserver.gamelogic.player.MrX;
 import at.aau.serg.websocketdemoserver.gamelogic.player.Player;
@@ -126,5 +125,9 @@ public class GameState {
         }
 
         return false;
+    }
+
+    private boolean isCaught() {
+        return getDetectivePositions().containsValue(getMrXPosition());
     }
 }
