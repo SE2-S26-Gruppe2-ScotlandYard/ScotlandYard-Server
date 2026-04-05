@@ -18,4 +18,16 @@ class PlayerTest {
         assertEquals("Watson", player.getPlayerName());
         assertEquals("d2", player.getPlayerId());
     }
+
+    @Test
+    void testPlayerPosition() {
+        Player player = new Detective("Lestrade", "d3");
+
+        // Initially, position should be 0 (or unassigned)
+        assertEquals(0, player.getCurrentPosition());
+
+        // Set a new position
+        player.setCurrentPosition(42);
+        assertEquals(42, player.getCurrentPosition());
+    }
 }
