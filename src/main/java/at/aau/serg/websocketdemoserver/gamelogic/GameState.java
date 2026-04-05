@@ -127,7 +127,7 @@ public class GameState {
         return false;
     }
 
-    private boolean isCaught() {
+    public boolean isCaught() {
         return getDetectivePositions().containsValue(getMrXPosition());
     }
 }
