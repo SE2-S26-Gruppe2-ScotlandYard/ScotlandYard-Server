@@ -14,6 +14,6 @@ public class GameState {
 
     public GameState (String gameId) {
         this.gameId = gameId;
-
+        this.board = Board.getInstance();
     }
 }
