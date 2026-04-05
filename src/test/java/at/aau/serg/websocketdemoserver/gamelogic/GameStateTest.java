@@ -51,17 +51,9 @@ class GameStateTest {
         assertEquals("Lobby is not ready to start the game", exception.getMessage());
     }
 
-
-    // TODO: refactor (too much boilerplate code)
-
     @Test
     void testInitializeFromLobbySuccess() {
-        when(mockLobby.canStartGame()).thenReturn(true);
-        when(mockLobby.getUsers()).thenReturn(List.of(hostUser, detectiveUser1, mrXUser));
-        when(mockLobby.getSelectedRole(hostUser.id())).thenReturn(Role.DETECTIVE);
-        when(mockLobby.getSelectedRole(detectiveUser1.id())).thenReturn(Role.DETECTIVE);
-        when(mockLobby.getSelectedRole(mrXUser.id())).thenReturn(Role.MRX);
-
+        setupBasicMrxLobby();
         gameState.initializeFromLobby(mockLobby);
 
         assertNotNull(gameState.getPlayer(hostUser.id()));
@@ -79,7 +71,6 @@ class GameStateTest {
         when(mockLobby.getUsers()).thenReturn(List.of(hostUser, detectiveUser1, detectiveUser2, mrXUser));
         when(mockLobby.getSelectedRole(anyString())).thenReturn(Role.DETECTIVE);
         when(mockLobby.getSelectedRole(mrXUser.id())).thenReturn(Role.MRX);
-
         gameState.initializeFromLobby(mockLobby);
 
         assertNotNull(gameState.getPlayerPosition(hostUser.id()));
@@ -93,11 +84,7 @@ class GameStateTest {
 
     @Test
     void testSetPlayerPositionValid() {
-        when(mockLobby.canStartGame()).thenReturn(true);
-        when(mockLobby.getUsers()).thenReturn(List.of(hostUser, detectiveUser1));
-        when(mockLobby.getSelectedRole(hostUser.id())).thenReturn(Role.DETECTIVE);
-        when(mockLobby.getSelectedRole(detectiveUser1.id())).thenReturn(Role.DETECTIVE);
-
+        setupBasicLobby();
         gameState.initializeFromLobby(mockLobby);
 
         gameState.setPlayerPosition(hostUser.id(), 42);
@@ -107,11 +94,7 @@ class GameStateTest {
 
     @Test
     void testSetPlayerPositionInvalidBelowRange() {
-        when(mockLobby.canStartGame()).thenReturn(true);
-        when(mockLobby.getUsers()).thenReturn(List.of(hostUser, detectiveUser1));
-        when(mockLobby.getSelectedRole(hostUser.id())).thenReturn(Role.DETECTIVE);
-        when(mockLobby.getSelectedRole(detectiveUser1.id())).thenReturn(Role.DETECTIVE);
-
+        setupBasicLobby();
         gameState.initializeFromLobby(mockLobby);
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
@@ -123,11 +106,7 @@ class GameStateTest {
 
     @Test
     void testSetPlayerPositionInvalidAboveRange() {
-        when(mockLobby.canStartGame()).thenReturn(true);
-        when(mockLobby.getUsers()).thenReturn(List.of(hostUser, detectiveUser1));
-        when(mockLobby.getSelectedRole(hostUser.id())).thenReturn(Role.DETECTIVE);
-        when(mockLobby.getSelectedRole(detectiveUser1.id())).thenReturn(Role.DETECTIVE);
-
+        setupBasicLobby();
         gameState.initializeFromLobby(mockLobby);
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
@@ -152,8 +131,8 @@ class GameStateTest {
         when(mockLobby.getUsers()).thenReturn(List.of(mrXUser, detectiveUser1));
         when(mockLobby.getSelectedRole(mrXUser.id())).thenReturn(Role.MRX);
         when(mockLobby.getSelectedRole(detectiveUser1.id())).thenReturn(Role.DETECTIVE);
-
         gameState.initializeFromLobby(mockLobby);
+        
         Integer mrXPosition = gameState.getMrXPosition();
 
         assertNotNull(mrXPosition);
@@ -162,11 +141,9 @@ class GameStateTest {
 
     @Test
     void testGetMrXPositionNoMrX() {
-        when(mockLobby.canStartGame()).thenReturn(true);
-        when(mockLobby.getUsers()).thenReturn(List.of(hostUser, detectiveUser1, detectiveUser2));
-        when(mockLobby.getSelectedRole(anyString())).thenReturn(Role.DETECTIVE);
-
+        setupDetectiveLobby();
         gameState.initializeFromLobby(mockLobby);
+        
         Integer mrXPosition = gameState.getMrXPosition();
 
         assertNull(mrXPosition);
@@ -174,11 +151,7 @@ class GameStateTest {
 
     @Test
     void testMultiplePlayersSamePosition() {
-        when(mockLobby.canStartGame()).thenReturn(true);
-        when(mockLobby.getUsers()).thenReturn(List.of(hostUser, detectiveUser1));
-        when(mockLobby.getSelectedRole(hostUser.id())).thenReturn(Role.DETECTIVE);
-        when(mockLobby.getSelectedRole(detectiveUser1.id())).thenReturn(Role.DETECTIVE);
-
+        setupBasicLobby();
         gameState.initializeFromLobby(mockLobby);
 
         gameState.setPlayerPosition(hostUser.id(), 100);
@@ -190,11 +163,7 @@ class GameStateTest {
 
     @Test
     void testUpdatePlayerPosition() {
-        when(mockLobby.canStartGame()).thenReturn(true);
-        when(mockLobby.getUsers()).thenReturn(List.of(hostUser, detectiveUser1));
-        when(mockLobby.getSelectedRole(hostUser.id())).thenReturn(Role.DETECTIVE);
-        when(mockLobby.getSelectedRole(detectiveUser1.id())).thenReturn(Role.DETECTIVE);
-
+        setupBasicLobby();
         gameState.initializeFromLobby(mockLobby);
 
         gameState.setPlayerPosition(hostUser.id(), 10);
@@ -206,10 +175,7 @@ class GameStateTest {
 
     @Test
     void testStartPositionsAreValidStationNumbers() {
-        when(mockLobby.canStartGame()).thenReturn(true);
-        when(mockLobby.getUsers()).thenReturn(List.of(hostUser, detectiveUser1, detectiveUser2));
-        when(mockLobby.getSelectedRole(anyString())).thenReturn(Role.DETECTIVE);
-
+        setupDetectiveLobby();
         gameState.initializeFromLobby(mockLobby);
 
         int[] validStartPositions = new int[] {13, 26, 29, 34, 50, 53, 91, 94, 103, 112, 117, 132, 138, 141, 155, 174, 197, 198};
@@ -229,11 +195,7 @@ class GameStateTest {
 
     @Test
     void testPlayerPositionsAfterInitialization() {
-        when(mockLobby.canStartGame()).thenReturn(true);
-        when(mockLobby.getUsers()).thenReturn(List.of(hostUser, detectiveUser1));
-        when(mockLobby.getSelectedRole(hostUser.id())).thenReturn(Role.DETECTIVE);
-        when(mockLobby.getSelectedRole(detectiveUser1.id())).thenReturn(Role.DETECTIVE);
-
+        setupBasicLobby();
         gameState.initializeFromLobby(mockLobby);
 
         for (User user : List.of(hostUser, detectiveUser1)) {
@@ -243,10 +205,7 @@ class GameStateTest {
 
     @Test
     void testDifferentStartPositionsForDifferentPlayers() {
-        when(mockLobby.canStartGame()).thenReturn(true);
-        when(mockLobby.getUsers()).thenReturn(List.of(hostUser, detectiveUser1, detectiveUser2));
-        when(mockLobby.getSelectedRole(anyString())).thenReturn(Role.DETECTIVE);
-
+        setupDetectiveLobby();
         gameState.initializeFromLobby(mockLobby);
 
         Integer pos1 = gameState.getPlayerPosition(hostUser.id());
@@ -263,12 +222,7 @@ class GameStateTest {
 
     @Test
     void testGetDetectivePositionsExcludesMrX() {
-        when(mockLobby.canStartGame()).thenReturn(true);
-        when(mockLobby.getUsers()).thenReturn(List.of(hostUser, detectiveUser1, mrXUser));
-        when(mockLobby.getSelectedRole(hostUser.id())).thenReturn(Role.DETECTIVE);
-        when(mockLobby.getSelectedRole(detectiveUser1.id())).thenReturn(Role.DETECTIVE);
-        when(mockLobby.getSelectedRole(mrXUser.id())).thenReturn(Role.MRX);
-
+        setupBasicMrxLobby();
         gameState.initializeFromLobby(mockLobby);
 
         Map<String, Integer> detectivePositions = gameState.getDetectivePositions();
@@ -282,10 +236,7 @@ class GameStateTest {
 
     @Test
     void testGetDetectivePositionsNoDetectives() {
-        when(mockLobby.canStartGame()).thenReturn(true);
-        when(mockLobby.getUsers()).thenReturn(List.of(mrXUser));
-        when(mockLobby.getSelectedRole(mrXUser.id())).thenReturn(Role.MRX);
-
+        setupOnlyMrxLobby();
         gameState.initializeFromLobby(mockLobby);
 
         Map<String, Integer> detectivePositions = gameState.getDetectivePositions();
@@ -296,12 +247,7 @@ class GameStateTest {
 
     @Test
     void testGetDetectivePositionsReturnsUnmodifiableMap() {
-        when(mockLobby.canStartGame()).thenReturn(true);
-        when(mockLobby.getUsers()).thenReturn(List.of(hostUser, detectiveUser1, mrXUser));
-        when(mockLobby.getSelectedRole(hostUser.id())).thenReturn(Role.DETECTIVE);
-        when(mockLobby.getSelectedRole(detectiveUser1.id())).thenReturn(Role.DETECTIVE);
-        when(mockLobby.getSelectedRole(mrXUser.id())).thenReturn(Role.MRX);
-
+        setupBasicMrxLobby();
         gameState.initializeFromLobby(mockLobby);
 
         Map<String, Integer> detectivePositions = gameState.getDetectivePositions();
@@ -313,12 +259,7 @@ class GameStateTest {
 
     @Test
     void testGetDetectivePositionsUpdates() {
-        when(mockLobby.canStartGame()).thenReturn(true);
-        when(mockLobby.getUsers()).thenReturn(List.of(hostUser, detectiveUser1, mrXUser));
-        when(mockLobby.getSelectedRole(hostUser.id())).thenReturn(Role.DETECTIVE);
-        when(mockLobby.getSelectedRole(detectiveUser1.id())).thenReturn(Role.DETECTIVE);
-        when(mockLobby.getSelectedRole(mrXUser.id())).thenReturn(Role.MRX);
-
+        setupBasicMrxLobby();
         gameState.initializeFromLobby(mockLobby);
 
         // update detective position
@@ -330,10 +271,7 @@ class GameStateTest {
 
     @Test
     void testGetDetectivePositionsAllDetectives() {
-        when(mockLobby.canStartGame()).thenReturn(true);
-        when(mockLobby.getUsers()).thenReturn(List.of(hostUser, detectiveUser1, detectiveUser2));
-        when(mockLobby.getSelectedRole(anyString())).thenReturn(Role.DETECTIVE);
-
+        setupDetectiveLobby();
         gameState.initializeFromLobby(mockLobby);
 
         // set specific positions
@@ -353,11 +291,7 @@ class GameStateTest {
 
     @Test
     void testMovePlayerPlayerDoesNotExist() {
-        when(mockLobby.canStartGame()).thenReturn(true);
-        when(mockLobby.getUsers()).thenReturn(List.of(hostUser, detectiveUser1));
-        when(mockLobby.getSelectedRole(hostUser.id())).thenReturn(Role.DETECTIVE);
-        when(mockLobby.getSelectedRole(detectiveUser1.id())).thenReturn(Role.DETECTIVE);
-
+        setupBasicLobby();
         gameState.initializeFromLobby(mockLobby);
 
         boolean result = gameState.movePlayer("nonExistentPlayer", TicketType.WALKING, 50);
@@ -367,11 +301,7 @@ class GameStateTest {
 
     @Test
     void testMovePlayerPlayerHasNoPosition() {
-        when(mockLobby.canStartGame()).thenReturn(true);
-        when(mockLobby.getUsers()).thenReturn(List.of(hostUser, detectiveUser1));
-        when(mockLobby.getSelectedRole(hostUser.id())).thenReturn(Role.DETECTIVE);
-        when(mockLobby.getSelectedRole(detectiveUser1.id())).thenReturn(Role.DETECTIVE);
-
+        setupBasicLobby();
         gameState.initializeFromLobby(mockLobby);
 
         // remove position
@@ -384,11 +314,7 @@ class GameStateTest {
 
     @Test
     void testMovePlayerInvalidMoveNoTicket() {
-        when(mockLobby.canStartGame()).thenReturn(true);
-        when(mockLobby.getUsers()).thenReturn(List.of(hostUser, detectiveUser1));
-        when(mockLobby.getSelectedRole(hostUser.id())).thenReturn(Role.DETECTIVE);
-        when(mockLobby.getSelectedRole(detectiveUser1.id())).thenReturn(Role.DETECTIVE);
-
+        setupBasicLobby();
         gameState.initializeFromLobby(mockLobby);
 
         int currentPos = gameState.getPlayerPosition(hostUser.id());
@@ -402,11 +328,7 @@ class GameStateTest {
 
     @Test
     void testMovePlayerInvalidMoveNoConnection() {
-        when(mockLobby.canStartGame()).thenReturn(true);
-        when(mockLobby.getUsers()).thenReturn(List.of(hostUser, detectiveUser1));
-        when(mockLobby.getSelectedRole(hostUser.id())).thenReturn(Role.DETECTIVE);
-        when(mockLobby.getSelectedRole(detectiveUser1.id())).thenReturn(Role.DETECTIVE);
-
+        setupBasicLobby();
         gameState.initializeFromLobby(mockLobby);
 
         gameState.setPlayerPosition(hostUser.id(), 1);
@@ -420,11 +342,7 @@ class GameStateTest {
 
     @Test
     void testMovePlayerDeductsTicket() {
-        when(mockLobby.canStartGame()).thenReturn(true);
-        when(mockLobby.getUsers()).thenReturn(List.of(hostUser, detectiveUser1));
-        when(mockLobby.getSelectedRole(hostUser.id())).thenReturn(Role.DETECTIVE);
-        when(mockLobby.getSelectedRole(detectiveUser1.id())).thenReturn(Role.DETECTIVE);
-
+        setupBasicLobby();
         gameState.initializeFromLobby(mockLobby);
 
         // set to a known position with connections
@@ -442,11 +360,7 @@ class GameStateTest {
 
     @Test
     void testMovePlayerInsufficientTickets() {
-        when(mockLobby.canStartGame()).thenReturn(true);
-        when(mockLobby.getUsers()).thenReturn(List.of(hostUser, detectiveUser1));
-        when(mockLobby.getSelectedRole(hostUser.id())).thenReturn(Role.DETECTIVE);
-        when(mockLobby.getSelectedRole(detectiveUser1.id())).thenReturn(Role.DETECTIVE);
-
+        setupBasicLobby();
         gameState.initializeFromLobby(mockLobby);
 
         // set to a known position with connections
@@ -467,10 +381,7 @@ class GameStateTest {
 
     @Test
     void testMrXMoveWithBlackTicket() {
-        when(mockLobby.canStartGame()).thenReturn(true);
-        when(mockLobby.getUsers()).thenReturn(List.of(mrXUser));
-        when(mockLobby.getSelectedRole(mrXUser.id())).thenReturn(Role.MRX);
-
+        setupOnlyMrxLobby();
         gameState.initializeFromLobby(mockLobby);
 
         // set to a known position
@@ -489,10 +400,7 @@ class GameStateTest {
 
     @Test
     void testMrXMoveUnlimitedRegularTickets() {
-        when(mockLobby.canStartGame()).thenReturn(true);
-        when(mockLobby.getUsers()).thenReturn(List.of(mrXUser));
-        when(mockLobby.getSelectedRole(mrXUser.id())).thenReturn(Role.MRX);
-
+        setupOnlyMrxLobby();
         gameState.initializeFromLobby(mockLobby);
 
         // set to a known position
@@ -510,11 +418,7 @@ class GameStateTest {
 
     @Test
     void testMovePlayerSameStation() {
-        when(mockLobby.canStartGame()).thenReturn(true);
-        when(mockLobby.getUsers()).thenReturn(List.of(hostUser, detectiveUser1));
-        when(mockLobby.getSelectedRole(hostUser.id())).thenReturn(Role.DETECTIVE);
-        when(mockLobby.getSelectedRole(detectiveUser1.id())).thenReturn(Role.DETECTIVE);
-
+        setupBasicLobby();
         gameState.initializeFromLobby(mockLobby);
 
         int currentPos = gameState.getPlayerPosition(hostUser.id());
@@ -527,11 +431,7 @@ class GameStateTest {
 
     @Test
     void testMovePlayerNegativePosition() {
-        when(mockLobby.canStartGame()).thenReturn(true);
-        when(mockLobby.getUsers()).thenReturn(List.of(hostUser, detectiveUser1));
-        when(mockLobby.getSelectedRole(hostUser.id())).thenReturn(Role.DETECTIVE);
-        when(mockLobby.getSelectedRole(detectiveUser1.id())).thenReturn(Role.DETECTIVE);
-
+        setupBasicLobby();
         gameState.initializeFromLobby(mockLobby);
 
         gameState.movePlayer(hostUser.id(), TicketType.WALKING, -5);
@@ -541,11 +441,7 @@ class GameStateTest {
 
     @Test
     void testMovePlayerPositionOutOfRange() {
-        when(mockLobby.canStartGame()).thenReturn(true);
-        when(mockLobby.getUsers()).thenReturn(List.of(hostUser, detectiveUser1));
-        when(mockLobby.getSelectedRole(hostUser.id())).thenReturn(Role.DETECTIVE);
-        when(mockLobby.getSelectedRole(detectiveUser1.id())).thenReturn(Role.DETECTIVE);
-
+        setupBasicLobby();
         gameState.initializeFromLobby(mockLobby);
 
         gameState.movePlayer(hostUser.id(), TicketType.WALKING, 300);
@@ -555,11 +451,7 @@ class GameStateTest {
 
     @Test
     void testDetectiveCannotUseBlackTicket() {
-        when(mockLobby.canStartGame()).thenReturn(true);
-        when(mockLobby.getUsers()).thenReturn(List.of(hostUser, detectiveUser1));
-        when(mockLobby.getSelectedRole(hostUser.id())).thenReturn(Role.DETECTIVE);
-        when(mockLobby.getSelectedRole(detectiveUser1.id())).thenReturn(Role.DETECTIVE);
-
+        setupBasicLobby();
         gameState.initializeFromLobby(mockLobby);
 
         gameState.setPlayerPosition(hostUser.id(), 108);
@@ -573,11 +465,7 @@ class GameStateTest {
 
     @Test
     void testMovePlayerWithDifferentTicketTypes() {
-        when(mockLobby.canStartGame()).thenReturn(true);
-        when(mockLobby.getUsers()).thenReturn(List.of(hostUser, detectiveUser1));
-        when(mockLobby.getSelectedRole(hostUser.id())).thenReturn(Role.DETECTIVE);
-        when(mockLobby.getSelectedRole(detectiveUser1.id())).thenReturn(Role.DETECTIVE);
-
+        setupBasicLobby();
         gameState.initializeFromLobby(mockLobby);
 
         gameState.setPlayerPosition(hostUser.id(), 77);
@@ -593,4 +481,31 @@ class GameStateTest {
         assertEquals(111, gameState.getPlayerPosition(hostUser.id()));
     }
 
+    // supporting methods
+    private void setupBasicLobby() {
+        when(mockLobby.canStartGame()).thenReturn(true);
+        when(mockLobby.getUsers()).thenReturn(List.of(hostUser, detectiveUser1));
+        when(mockLobby.getSelectedRole(hostUser.id())).thenReturn(Role.DETECTIVE);
+        when(mockLobby.getSelectedRole(detectiveUser1.id())).thenReturn(Role.DETECTIVE);
+    }
+    
+    private void setupBasicMrxLobby() {
+        when(mockLobby.canStartGame()).thenReturn(true);
+        when(mockLobby.getUsers()).thenReturn(List.of(hostUser, detectiveUser1, mrXUser));
+        when(mockLobby.getSelectedRole(hostUser.id())).thenReturn(Role.DETECTIVE);
+        when(mockLobby.getSelectedRole(detectiveUser1.id())).thenReturn(Role.DETECTIVE);
+        when(mockLobby.getSelectedRole(mrXUser.id())).thenReturn(Role.MRX);
+    }
+    
+    private void setupOnlyMrxLobby() {
+        when(mockLobby.canStartGame()).thenReturn(true);
+        when(mockLobby.getUsers()).thenReturn(List.of(mrXUser));
+        when(mockLobby.getSelectedRole(mrXUser.id())).thenReturn(Role.MRX);
+    }
+
+    private void setupDetectiveLobby() {
+        when(mockLobby.canStartGame()).thenReturn(true);
+        when(mockLobby.getUsers()).thenReturn(List.of(hostUser, detectiveUser1, detectiveUser2));
+        when(mockLobby.getSelectedRole(anyString())).thenReturn(Role.DETECTIVE);
+    }
 }
