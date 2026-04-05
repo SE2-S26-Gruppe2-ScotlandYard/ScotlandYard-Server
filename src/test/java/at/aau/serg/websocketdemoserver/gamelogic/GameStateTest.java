@@ -481,6 +481,31 @@ class GameStateTest {
         assertEquals(111, gameState.getPlayerPosition(hostUser.id()));
     }
 
+    // isCaught
+    @Test
+    void testMrXCollisionWithDetective() {
+        setupBasicMrxLobby();
+        gameState.initializeFromLobby(mockLobby);
+
+        // set same position for Mr.X and a detective
+        gameState.setPlayerPosition(mrXUser.id(), 42);
+        gameState.setPlayerPosition(hostUser.id(), 42);
+
+        assertTrue(gameState.isCaught());
+    }
+
+    @Test
+    void testMrXNoCollision() {
+        setupBasicMrxLobby();
+        gameState.initializeFromLobby(mockLobby);
+
+        // set different positions
+        gameState.setPlayerPosition(mrXUser.id(), 10);
+        gameState.setPlayerPosition(hostUser.id(), 20);
+
+        assertFalse(gameState.isCaught());
+    }
+
     // supporting methods
     private void setupBasicLobby() {
         when(mockLobby.canStartGame()).thenReturn(true);
