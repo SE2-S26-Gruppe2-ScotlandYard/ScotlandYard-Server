@@ -1,4 +1,4 @@
-package at.aau.serg.websocketdemoserver.gamelogic;
+package at.aau.serg.websocketdemoserver.gamelogic.game;
 
 import at.aau.serg.websocketdemoserver.gamelogic.board.Board;
 import at.aau.serg.websocketdemoserver.gamelogic.player.Player;
