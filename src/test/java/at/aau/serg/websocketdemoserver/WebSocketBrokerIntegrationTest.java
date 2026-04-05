@@ -1,6 +1,6 @@
 package at.aau.serg.websocketdemoserver;
 
-import at.aau.serg.websocketdemoserver.messaging.dtos.StompMessage;
+import at.aau.serg.websocketdemoserver.dtos.StompMessage;
 import at.aau.serg.websocketdemoserver.websocket.StompFrameHandlerClientImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

@@ -1,6 +1,6 @@
 package at.aau.serg.websocketdemoserver.websocket.broker;
 
-import at.aau.serg.websocketdemoserver.messaging.dtos.StompMessage;
+import at.aau.serg.websocketdemoserver.dtos.StompMessage;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
 
