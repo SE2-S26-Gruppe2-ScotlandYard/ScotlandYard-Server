@@ -41,10 +41,10 @@ public class GameState {
 
             Player player;
             if (role == Role.MRX) {
-                player = new MrX(user.name(), user.id());       // new Mr. X
+                player = new MrX(user);       // new Mr. X
                 this.mrXId = user.id();
             } else {
-                player = new Detective(user.name(), user.id()); // new Detective
+                player = new Detective(user); // new Detective
             }
 
             players.put(user.id(), player);

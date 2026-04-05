@@ -5,13 +5,15 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
+import at.aau.serg.websocketdemoserver.lobby.User;
+
 class DetectiveTest {
 
     private Detective detective;
 
     @BeforeEach
     void setUp() {
-        detective = new Detective("Sherlock", "d1");
+        detective = new Detective(new User("d1", "Sherlock", "12"));
     }
 
     @Test

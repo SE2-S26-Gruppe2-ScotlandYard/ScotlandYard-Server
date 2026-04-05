@@ -3,11 +3,13 @@ package at.aau.serg.websocketdemoserver.gamelogic.player;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
+import at.aau.serg.websocketdemoserver.lobby.User;
+
 class PlayerTest {
 
     @Test
     void testPlayerGettersAndSetters() {
-        Player player = new Detective("Sherlock", "d1");
+        Player player = new Detective(new User("d1", "Sherlock", "34"));
 
         assertEquals("Sherlock", player.getPlayerName());
         assertEquals("d1", player.getPlayerId());
