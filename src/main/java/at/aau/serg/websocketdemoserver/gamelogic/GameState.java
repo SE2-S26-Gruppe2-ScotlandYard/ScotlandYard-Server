@@ -1,13 +1,17 @@
 package at.aau.serg.websocketdemoserver.gamelogic;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 
 import at.aau.serg.websocketdemoserver.gamelogic.board.Board;
+import at.aau.serg.websocketdemoserver.gamelogic.board.Connection;
+import at.aau.serg.websocketdemoserver.gamelogic.board.Station;
 import at.aau.serg.websocketdemoserver.gamelogic.player.Detective;
 import at.aau.serg.websocketdemoserver.gamelogic.player.MrX;
 import at.aau.serg.websocketdemoserver.gamelogic.player.Player;
+import at.aau.serg.websocketdemoserver.gamelogic.player.TicketType;
 import at.aau.serg.websocketdemoserver.lobby.Lobby;
 import at.aau.serg.websocketdemoserver.lobby.Role;
 import at.aau.serg.websocketdemoserver.lobby.User;
@@ -66,11 +70,23 @@ public class GameState {
         if (!players.containsKey(playerId)) {
             throw new IllegalArgumentException("Player not found: " + playerId);
         }
+
         playerPositions.put(playerId, position);
     }
 
     public Integer getMrXPosition() {
         return playerPositions.get(mrXId);
+    }
+
+    public Map<String, Integer> getDetectivePositions() {
+        Map<String, Integer> detectivePositions = new HashMap<>();
+        for (String playerId : players.keySet()) {
+            if (!playerId.equals(mrXId)) {
+                detectivePositions.put(playerId, playerPositions.get(playerId));
+            }
+        }
+
+        return Collections.unmodifiableMap(detectivePositions);
     }
 
     public Integer getPlayerPosition(String playerId) {
@@ -81,4 +97,34 @@ public class GameState {
         return players.get(playerId);
     }
 
+    public boolean movePlayer(String playerId, TicketType ticket, int newPosition) {
+        try {
+            if (!players.containsKey(playerId)) {   // player has to exist to move
+                return false;
+            }
+
+            Integer currentPosition = playerPositions.get(playerId);
+            if (currentPosition == null) {          // player has to be on the board to move
+                return false;
+            }
+
+            if (isValidMove(playerId, ticket, currentPosition, newPosition)) {
+                getPlayer(playerId).useTicket(ticket);
+                setPlayerPosition(playerId, newPosition);
+                return true;
+            }
+        } catch (Exception e) {
+            throw new IllegalArgumentException(e);
+        }
+        return false;
+    }
+
+    private boolean isValidMove(String playerId, TicketType ticket, int fromPosition, int toPosition) {
+        if (getPlayer(playerId).hasTicket(ticket)) {
+            Connection toCheck = new Connection(toPosition, ticket);
+            return board.getStation(fromPosition).getConnections().contains(toCheck);
+        }
+
+        return false;
+    }
 }
