@@ -7,8 +7,16 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class GameController {
+
+    private static GameController controllerInstance = null;
     private final Map<String, GameState> activeGames = new ConcurrentHashMap<>();
 
+    public static GameController getInstance() {
+        if (controllerInstance == null) {
+            controllerInstance = new GameController();
+        }
+        return controllerInstance;
+    }
     public void addGame(String gameId, GameState gameState) {
         activeGames.put(gameId, gameState);
     }
