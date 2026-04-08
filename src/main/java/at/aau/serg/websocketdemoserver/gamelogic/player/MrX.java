@@ -4,12 +4,14 @@ import java.util.Collections;
 import java.util.EnumMap;
 import java.util.Map;
 
+import at.aau.serg.websocketdemoserver.lobby.User;
+
 public class MrX extends Player{
 
     private final Map<TicketType, Integer> tickets;
 
-    public MrX(String playerName, String playerId) {
-        super(playerName, playerId);
+    public MrX(User user) {
+        super(user);
         this.tickets = new EnumMap<>(TicketType.class);
         initializeTickets();
     }

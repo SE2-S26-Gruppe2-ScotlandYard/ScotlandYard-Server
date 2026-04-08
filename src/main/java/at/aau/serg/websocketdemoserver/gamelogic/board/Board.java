@@ -11,10 +11,19 @@ import java.util.List;
 import java.util.Map;
 
 public class Board {
+
+    private static Board boardInstance = null;
     private final Map<Integer, Station> stations = new HashMap<>();
 
-    public Board() {
+    private Board() {
         loadBoard();
+    }
+
+    public static Board getInstance() {
+        if (boardInstance == null) {
+            boardInstance = new Board();
+        }
+        return boardInstance;
     }
 
     private void loadBoard() {

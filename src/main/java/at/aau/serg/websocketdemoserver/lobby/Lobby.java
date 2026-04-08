@@ -100,6 +100,10 @@ public class Lobby {
         return true; // Selection was successful.
     }
 
+    public Role getSelectedRole(String userId) {
+        return selectedRoles.get(userId);
+    }
+
     public boolean hasExactlyOneMrX() {
         return selectedRoles.values().stream()
                 .filter(role -> role == Role.MRX)

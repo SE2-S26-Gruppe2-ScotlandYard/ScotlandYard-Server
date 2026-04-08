@@ -189,5 +189,13 @@ class LobbyTest {
             testStartGame_Success(); // Start the game
             assertThrows(IllegalStateException.class, () -> lobby.addUser(new User("u4", "p4", "pw")));
         }
+
+        @Test
+        void testGetSelectedRole_ReturnsSelected() {
+            assertTrue(lobby.selectRole(host.id(), Role.MRX));          // assign role (Mr. X)
+            assertEquals(Role.MRX, lobby.getSelectedRole(host.id()));   //check assigned role (Mr. X)
+            assertTrue(lobby.selectRole(user2.id(), Role.DETECTIVE));          // assign role (Mr. X)
+            assertEquals(Role.DETECTIVE, lobby.getSelectedRole(user2.id()));   //check assigned role (Mr. X)
+        }
     }
 }

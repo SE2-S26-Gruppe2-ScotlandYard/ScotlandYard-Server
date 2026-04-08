@@ -1,7 +1,17 @@
 package at.aau.serg.websocketdemoserver;
 
-import at.aau.serg.websocketdemoserver.messaging.dtos.StompMessage;
+import at.aau.serg.websocketdemoserver.dtos.StompMessage;
+import at.aau.serg.websocketdemoserver.dtos.movement.MovementMessage;
+import at.aau.serg.websocketdemoserver.dtos.movement.MovementResponse;
+import at.aau.serg.websocketdemoserver.gamelogic.GameState;
+import at.aau.serg.websocketdemoserver.gamelogic.player.TicketType;
+import at.aau.serg.websocketdemoserver.lobby.Lobby;
+import at.aau.serg.websocketdemoserver.lobby.Role;
+import at.aau.serg.websocketdemoserver.lobby.User;
+import at.aau.serg.websocketdemoserver.service.GameController;
 import at.aau.serg.websocketdemoserver.websocket.StompFrameHandlerClientImpl;
+
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -28,9 +38,44 @@ class WebSocketBrokerIntegrationTest {
     @LocalServerPort
     private int port;
 
-    private final String WEBSOCKET_URI = "ws://localhost:%d/websocket-example-broker";
+    private final String WEBSOCKET_URI = "ws://localhost:%d/scotlandyard";
     private final String WEBSOCKET_TOPIC = "/topic/hello-response";
     private final String WEBSOCKET_TOPIC_OBJECT = "/topic/rcv-object";
+    private final String WEBSOCKET_TOPIC_MOVE = "/topic/move-response";
+
+
+    private GameController gameController;
+    private String gameId;
+    private String playerId;
+
+    @BeforeEach
+    void setUp() {
+        gameId = "game1";
+        playerId = "user1";
+
+        GameState gameState = new GameState(gameId);
+        gameController = GameController.getInstance();
+
+        // create a simple lobby
+        User user1 = new User(playerId, "User1", "pw");
+        Lobby lobby = new Lobby(gameId, user1);
+        lobby.addUser(user1);
+        lobby.selectRole(playerId, Role.DETECTIVE);
+        lobby.markPlayerReady("user1");
+
+        User user2 = new User("user2", "Player2", "pw");
+        lobby.addUser(user2);
+        lobby.selectRole("user2", Role.MRX);
+        lobby.markPlayerReady("user2");
+
+        User user3 = new User("user3", "Player3", "pw");
+        lobby.addUser(user3);
+        lobby.selectRole("user3", Role.DETECTIVE);
+        lobby.markPlayerReady("user3");
+
+        gameState.initializeFromLobby(lobby);
+        gameController.addGame(gameId, gameState);
+    }
 
     @Test
     void testWebSocketMessageBroker() throws Exception {
@@ -55,6 +100,116 @@ class WebSocketBrokerIntegrationTest {
         session.send("/app/object", message);
 
         assertThat(messages.poll(1, TimeUnit.SECONDS)).isEqualTo(message);
+    }
+
+    @Test
+    void testHandleMove_SuccessfulMove() throws Exception {
+        BlockingQueue<MovementResponse> messages = new LinkedBlockingDeque<>();
+        StompSession session = initStompSession(WEBSOCKET_TOPIC_MOVE, new JacksonJsonMessageConverter(), messages, MovementResponse.class);
+
+        // set current position first
+        GameState gameState = gameController.getGame(gameId);
+        gameState.setPlayerPosition(playerId, 2);
+
+
+        MovementMessage movement = new MovementMessage();
+        movement.setGameId(gameId);
+        movement.setPlayerId(playerId);
+        movement.setTicket(TicketType.WALKING);
+        movement.setTargetPosition(20);
+        movement.setTimestamp(System.currentTimeMillis());
+
+        session.send("/app/move", movement);
+
+        MovementResponse actualResponse = messages.poll(2, TimeUnit.SECONDS);
+
+        assertThat(actualResponse).isNotNull();
+        assertThat(actualResponse.isSuccess()).isTrue();
+        assertThat(actualResponse.getMessage()).isEqualTo("Movement successful");
+    }
+
+    @Test
+    void testHandleMove_InvalidGameId() throws Exception {
+        BlockingQueue<MovementResponse> messages = new LinkedBlockingDeque<>();
+        StompSession session = initStompSession(WEBSOCKET_TOPIC_MOVE, new JacksonJsonMessageConverter(), messages, MovementResponse.class);
+
+        MovementMessage movement = new MovementMessage();
+        movement.setGameId("invalidGameId");
+        movement.setPlayerId(playerId);
+        movement.setTicket(TicketType.WALKING);
+        movement.setTargetPosition(20);
+        movement.setTimestamp(System.currentTimeMillis());
+
+        session.send("/app/move", movement);
+
+        MovementResponse actualResponse = messages.poll(2, TimeUnit.SECONDS);
+
+        assertThat(actualResponse).isNotNull();
+        assertThat(actualResponse.isSuccess()).isFalse();
+        assertThat(actualResponse.getMessage()).isEqualTo("Game not found");
+    }
+
+    @Test
+    void testHandleMove_InvalidPlayerId() throws Exception {
+        BlockingQueue<MovementResponse> messages = new LinkedBlockingDeque<>();
+        StompSession session = initStompSession(WEBSOCKET_TOPIC_MOVE, new JacksonJsonMessageConverter(), messages, MovementResponse.class);
+
+        MovementMessage movement = new MovementMessage();
+        movement.setGameId(gameId);
+        movement.setPlayerId("invalidPlayerId");
+        movement.setTicket(TicketType.WALKING);
+        movement.setTargetPosition(20);
+        movement.setTimestamp(System.currentTimeMillis());
+
+        session.send("/app/move", movement);
+
+        MovementResponse response = messages.poll(2, TimeUnit.SECONDS);
+
+        assertThat(response).isNotNull();
+        assertThat(response.isSuccess()).isFalse();
+        assertThat(response.getMessage()).isEqualTo("Invalid movement data");
+    }
+
+    @Test
+    void testHandleMove_NullGameId() throws Exception {
+        BlockingQueue<MovementResponse> messages = new LinkedBlockingDeque<>();
+        StompSession session = initStompSession(WEBSOCKET_TOPIC_MOVE, new JacksonJsonMessageConverter(), messages, MovementResponse.class);
+
+        MovementMessage movement = new MovementMessage();
+        movement.setGameId(null);
+        movement.setPlayerId(playerId);
+        movement.setTicket(TicketType.WALKING);
+        movement.setTargetPosition(20);
+        movement.setTimestamp(System.currentTimeMillis());
+
+        session.send("/app/move", movement);
+
+        MovementResponse response = messages.poll(2, TimeUnit.SECONDS);
+
+        assertThat(response).isNotNull();
+        assertThat(response.isSuccess()).isFalse();
+        assertThat(response.getMessage()).isEqualTo("Invalid movement data");
+    }
+
+    @Test
+    void testHandleMove_NullPlayerId() throws Exception {
+        BlockingQueue<MovementResponse> messages = new LinkedBlockingDeque<>();
+        StompSession session = initStompSession(WEBSOCKET_TOPIC_MOVE, new JacksonJsonMessageConverter(), messages, MovementResponse.class);
+
+        MovementMessage movement = new MovementMessage();
+        movement.setGameId(gameId);
+        movement.setPlayerId(null);
+        movement.setTicket(TicketType.WALKING);
+        movement.setTargetPosition(20);
+        movement.setTimestamp(System.currentTimeMillis());
+
+        session.send("/app/move", movement);
+
+        MovementResponse response = messages.poll(2, TimeUnit.SECONDS);
+
+        assertThat(response).isNotNull();
+        assertThat(response.isSuccess()).isFalse();
+        assertThat(response.getMessage()).isEqualTo("Invalid movement data");
     }
 
     /**

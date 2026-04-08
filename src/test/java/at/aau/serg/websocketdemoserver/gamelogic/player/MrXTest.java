@@ -5,13 +5,15 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
+import at.aau.serg.websocketdemoserver.lobby.User;
+
 class MrXTest {
 
     private MrX mrX;
 
     @BeforeEach
     void setUp() {
-        mrX = new MrX("Moriarty", "x1");
+        mrX = new MrX(new User("x1", "Moriarty", "23"));
     }
 
     @Test
