@@ -1,7 +1,6 @@
 package at.aau.serg.websocketdemoserver;
 
 import at.aau.serg.websocketdemoserver.dtos.StompMessage;
-import at.aau.serg.websocketdemoserver.dtos.movement.MovementData;
 import at.aau.serg.websocketdemoserver.dtos.movement.MovementMessage;
 import at.aau.serg.websocketdemoserver.dtos.movement.MovementResponse;
 import at.aau.serg.websocketdemoserver.gamelogic.GameState;
@@ -15,7 +14,6 @@ import at.aau.serg.websocketdemoserver.websocket.StompFrameHandlerClientImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.messaging.converter.JacksonJsonMessageConverter;

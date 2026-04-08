@@ -5,8 +5,6 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
-import at.aau.serg.websocketdemoserver.gamelogic.player.MrX;
-
 class LobbyTest {
 
     private User host;
