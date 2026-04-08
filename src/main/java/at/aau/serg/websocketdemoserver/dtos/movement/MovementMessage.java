@@ -11,7 +11,6 @@ import lombok.NoArgsConstructor;
 public class MovementMessage {
     private String gameId;
     private String playerId;
-    private String playerName;
     private TicketType ticket;
     private int targetPosition;
     private long timestamp;
