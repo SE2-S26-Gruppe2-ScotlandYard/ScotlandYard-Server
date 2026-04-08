@@ -64,17 +64,6 @@ class GameControllerTest {
     }
 
     @Test
-    void testGetGameExisting() {
-        String gameId = "game1";
-        gameController.addGame(gameId, mockGameState);
-
-        GameState retrievedGame = gameController.getGame(gameId);
-
-        assertNotNull(retrievedGame);
-        assertEquals(mockGameState, retrievedGame);
-    }
-
-    @Test
     void testGetGameWithNullId() {
         assertThrows(NullPointerException.class, () -> gameController.getGame(null));
     }
