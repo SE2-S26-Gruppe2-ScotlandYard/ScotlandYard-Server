@@ -58,7 +58,7 @@ public class GameState {
         Random RND = new Random();
 
         for (String playerId : players.keySet()) {
-            int rnd = new Random().nextInt(startPositions.length);
+            int rnd = RND.nextInt(startPositions.length);
             setPlayerPosition(playerId, startPositions[rnd]);
         }
     }
