@@ -24,6 +24,7 @@ public class GameState {
     private final Map<String, Player> players = new HashMap<>();
     protected Map<String, Integer> playerPositions = new HashMap<>();
     private String mrXId;
+    private final Random RANDOM = new Random();
 
     public GameState (String gameId) {
         this.gameId = gameId;
@@ -55,10 +56,9 @@ public class GameState {
 
     private void initializeStartPositions() {
         int[] startPositions = new int[] {13, 26, 29, 34, 50, 53, 91, 94, 103, 112, 117, 132, 138, 141, 155, 174, 197, 198};
-        Random RND = new Random();
 
         for (String playerId : players.keySet()) {
-            int rnd = RND.nextInt(startPositions.length);
+            int rnd = RANDOM.nextInt(startPositions.length);
             setPlayerPosition(playerId, startPositions[rnd]);
         }
     }
