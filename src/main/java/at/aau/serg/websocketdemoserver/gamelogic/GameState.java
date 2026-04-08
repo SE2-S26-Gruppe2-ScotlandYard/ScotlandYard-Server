@@ -24,7 +24,7 @@ public class GameState {
     private final Map<String, Player> players = new HashMap<>();
     protected Map<String, Integer> playerPositions = new HashMap<>();
     private String mrXId;
-    private final Random RANDOM = new Random();
+    private final Random RANDOM = new Random();     //NOSONAR not used in secure contexts
 
     public GameState (String gameId) {
         this.gameId = gameId;
