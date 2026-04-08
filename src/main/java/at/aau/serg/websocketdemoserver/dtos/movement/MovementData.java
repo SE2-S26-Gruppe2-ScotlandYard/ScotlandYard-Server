@@ -10,7 +10,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class MovementData {
     private String playerId;
-    private String playerName;
     private TicketType ticketUsed;
     private int fromPosition;
     private int toPosition;
