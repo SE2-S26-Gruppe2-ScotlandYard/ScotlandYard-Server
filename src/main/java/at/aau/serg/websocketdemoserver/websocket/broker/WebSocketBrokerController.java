@@ -26,20 +26,28 @@ public class WebSocketBrokerController {
 
        return msg;
     }
-    private GameController gameController;
+
+    private final GameController gameController = GameController.getInstance();
 
     @MessageMapping("/move")
     @SendTo("/topic/move-response")
     public MovementResponse handleMove(MovementMessage movement) {
+        // validate gameId and playerId first
+        if (movement.getGameId() == null || movement.getPlayerId() == null) {
+            return new MovementResponse(false, "Invalid movement data", 0, null);
+        }
+
         GameState gameState = gameController.getGame(movement.getGameId());
 
         try {
-            if (movement.getGameId() == null || movement.getPlayerId() == null) {
-                return new MovementResponse(false, "Invalid movement data", 0, null);
-            }
-
             if (gameState == null) {
                 return new MovementResponse(false, "Game not found", 0, null);
+            }
+
+            // check if player exists
+            Integer playerPosition = gameState.getPlayerPosition(movement.getPlayerId());
+            if (playerPosition == null) {
+                return new MovementResponse(false, "Invalid movement data", 0, null);
             }
 
             // move
@@ -62,7 +70,7 @@ public class WebSocketBrokerController {
 
         } catch (Exception e) {
             assert gameState != null;
-            return new MovementResponse(false, "Error: " + e.getMessage(), gameState.getPlayerPosition(movement.getPlayerId()), null);
+            return new MovementResponse(false, "Error: " + e.getMessage(), 0, null);
         }
     }
 

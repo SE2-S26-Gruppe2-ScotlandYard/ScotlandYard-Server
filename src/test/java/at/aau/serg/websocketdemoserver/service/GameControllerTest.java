@@ -14,7 +14,7 @@ class GameControllerTest {
 
     @BeforeEach
     void setUp() {
-        gameController = new GameController();
+        gameController = GameController.getInstance();
         mockGameState = mock(GameState.class);
     }
 
