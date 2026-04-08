@@ -16,7 +16,7 @@ public abstract class Player {
     protected String playerId;
     protected final User user;
 
-    public Player(User user) {
+    protected Player(User user) {
         this.playerName = user.name();
         this.playerId = user.id();
         this.user = user;

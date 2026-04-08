@@ -97,7 +97,7 @@ class GameStateTest {
         setupBasicLobby();
         gameState.initializeFromLobby(mockLobby);
 
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {   // single invocation, lambda braces are fine here
             gameState.setPlayerPosition(hostUser.id(), 0);
         });
 
@@ -109,7 +109,7 @@ class GameStateTest {
         setupBasicLobby();
         gameState.initializeFromLobby(mockLobby);
 
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {   // single invocation, lambda braces are fine
             gameState.setPlayerPosition(hostUser.id(), 200);
         });
 
