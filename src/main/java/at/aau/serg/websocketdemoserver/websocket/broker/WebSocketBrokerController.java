@@ -5,11 +5,21 @@ import at.aau.serg.websocketdemoserver.dtos.movement.MovementMessage;
 import at.aau.serg.websocketdemoserver.dtos.movement.MovementResponse;
 import at.aau.serg.websocketdemoserver.gamelogic.GameState;
 import at.aau.serg.websocketdemoserver.service.GameController;
+import at.aau.serg.websocketdemoserver.dtos.lobby.CreateLobbyMessage;
+import at.aau.serg.websocketdemoserver.dtos.lobby.DeleteLobbyMessage;
+import at.aau.serg.websocketdemoserver.dtos.lobby.JoinLobbyMessage;
+import at.aau.serg.websocketdemoserver.dtos.lobby.LeaveLobbyMessage;
+import at.aau.serg.websocketdemoserver.dtos.lobby.LobbyResponse;
+import at.aau.serg.websocketdemoserver.lobby.Lobby;
+import at.aau.serg.websocketdemoserver.lobby.User;
+import at.aau.serg.websocketdemoserver.service.LobbyService;
 
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
 
 import org.springframework.stereotype.Controller;
+
+
 
 
 @Controller
@@ -28,6 +38,7 @@ public class WebSocketBrokerController {
     }
 
     private final GameController gameController = GameController.getInstance();
+    private final LobbyService lobbyService = new LobbyService();
 
     @MessageMapping("/move")
     @SendTo("/topic/move-response")
@@ -71,6 +82,72 @@ public class WebSocketBrokerController {
         } catch (Exception e) {
             assert gameState != null;
             return new MovementResponse(false, "Error: " + e.getMessage(), 0, null);
+        }
+    }
+
+    @MessageMapping("/lobby/create")
+    @SendTo("/topic/lobby")
+    public LobbyResponse handleCreateLobby(CreateLobbyMessage message) {
+        try {
+            User host = new User(
+                    message.getUserId(),
+                    message.getUserName(),
+                    message.getPassword()
+            );
+
+            Lobby lobby = lobbyService.createLobby(message.getLobbyName(), host);
+
+            return new LobbyResponse(true, "Lobby created", lobby.getId(), lobby);
+        } catch (Exception e) {
+            return new LobbyResponse(false, e.getMessage(), null, null);
+        }
+    }
+
+    @MessageMapping("/lobby/join")
+    @SendTo("/topic/lobby")
+    public LobbyResponse handleJoinLobby(JoinLobbyMessage message) {
+        try {
+            User user = new User(
+                    message.getUserId(),
+                    message.getUserName(),
+                    message.getPassword()
+            );
+
+            Lobby lobby = lobbyService.joinLobby(message.getLobbyId(), user);
+
+            return new LobbyResponse(true, "Joined lobby", lobby.getId(), lobby);
+        } catch (Exception e) {
+            return new LobbyResponse(false, e.getMessage(), null, null);
+        }
+    }
+
+    @MessageMapping("/lobby/leave")
+    @SendTo("/topic/lobby")
+    public LobbyResponse handleLeaveLobby(LeaveLobbyMessage message) {
+        try {
+            lobbyService.leaveLobby(message.getLobbyId(), message.getUserId());
+
+            Lobby updatedLobby = lobbyService.getLobby(message.getLobbyId());
+
+            if (updatedLobby == null) {
+                return new LobbyResponse(true, "Lobby deleted (empty)", message.getLobbyId(), null);
+            }
+
+            return new LobbyResponse(true, "Left lobby", updatedLobby.getId(), updatedLobby);
+        } catch (Exception e) {
+            return new LobbyResponse(false, e.getMessage(), null, null);
+        }
+    }
+
+    @MessageMapping("/lobby/delete")
+    @SendTo("/topic/lobby")
+    public LobbyResponse handleDeleteLobby(DeleteLobbyMessage message) {
+        try {
+            lobbyService.deleteLobby(message.getLobbyId(), message.getRequesterId());
+
+            return new LobbyResponse(true, "Lobby deleted", message.getLobbyId(), null);
+        } catch (Exception e) {
+            return new LobbyResponse(false, e.getMessage(), null, null);
         }
     }
 
