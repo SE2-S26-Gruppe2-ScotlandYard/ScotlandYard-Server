@@ -34,6 +34,19 @@ public class LobbyDtosTests {
     }
 
     @Test
+    void testCreateLobbyMessageEqualsHashCodeAndToString() {
+        CreateLobbyMessage m1 = new CreateLobbyMessage("TestLobby", "1", "Stefan", "pass");
+        CreateLobbyMessage m2 = new CreateLobbyMessage("TestLobby", "1", "Stefan", "pass");
+        CreateLobbyMessage m3 = new CreateLobbyMessage("OtherLobby", "2", "Anna", "secret");
+
+        assertEquals(m1, m2);
+        assertEquals(m1.hashCode(), m2.hashCode());
+        assertNotEquals(m1, m3);
+        assertNotNull(m1.toString());
+        assertTrue(m1.toString().contains("TestLobby"));
+    }
+
+    @Test
     void testJoinLobbyMessageNoArgsConstructorAndSetters() {
         JoinLobbyMessage message = new JoinLobbyMessage();
 
@@ -59,6 +72,19 @@ public class LobbyDtosTests {
     }
 
     @Test
+    void testJoinLobbyMessageEqualsHashCodeAndToString() {
+        JoinLobbyMessage m1 = new JoinLobbyMessage("lobby-123", "2", "Player", "secret");
+        JoinLobbyMessage m2 = new JoinLobbyMessage("lobby-123", "2", "Player", "secret");
+        JoinLobbyMessage m3 = new JoinLobbyMessage("other-lobby", "3", "Other", "pw");
+
+        assertEquals(m1, m2);
+        assertEquals(m1.hashCode(), m2.hashCode());
+        assertNotEquals(m1, m3);
+        assertNotNull(m1.toString());
+        assertTrue(m1.toString().contains("lobby-123"));
+    }
+
+    @Test
     void testLeaveLobbyMessageNoArgsConstructorAndSetters() {
         LeaveLobbyMessage message = new LeaveLobbyMessage();
 
@@ -78,6 +104,19 @@ public class LobbyDtosTests {
     }
 
     @Test
+    void testLeaveLobbyMessageEqualsHashCodeAndToString() {
+        LeaveLobbyMessage m1 = new LeaveLobbyMessage("lobby-456", "3");
+        LeaveLobbyMessage m2 = new LeaveLobbyMessage("lobby-456", "3");
+        LeaveLobbyMessage m3 = new LeaveLobbyMessage("other-lobby", "4");
+
+        assertEquals(m1, m2);
+        assertEquals(m1.hashCode(), m2.hashCode());
+        assertNotEquals(m1, m3);
+        assertNotNull(m1.toString());
+        assertTrue(m1.toString().contains("lobby-456"));
+    }
+
+    @Test
     void testDeleteLobbyMessageNoArgsConstructorAndSetters() {
         DeleteLobbyMessage message = new DeleteLobbyMessage();
 
@@ -94,6 +133,19 @@ public class LobbyDtosTests {
 
         assertEquals("lobby-789", message.getLobbyId());
         assertEquals("host-1", message.getRequesterId());
+    }
+
+    @Test
+    void testDeleteLobbyMessageEqualsHashCodeAndToString() {
+        DeleteLobbyMessage m1 = new DeleteLobbyMessage("lobby-789", "host-1");
+        DeleteLobbyMessage m2 = new DeleteLobbyMessage("lobby-789", "host-1");
+        DeleteLobbyMessage m3 = new DeleteLobbyMessage("other-lobby", "host-2");
+
+        assertEquals(m1, m2);
+        assertEquals(m1.hashCode(), m2.hashCode());
+        assertNotEquals(m1, m3);
+        assertNotNull(m1.toString());
+        assertTrue(m1.toString().contains("lobby-789"));
     }
 
     @Test
@@ -142,5 +194,21 @@ public class LobbyDtosTests {
         assertEquals("Lobby deleted", response.getMessage());
         assertEquals("lobby-999", response.getLobbyId());
         assertNull(response.getLobby());
+    }
+
+    @Test
+    void testLobbyResponseEqualsHashCodeAndToString() {
+        User host = new User("1", "Host", "pass");
+        Lobby lobby = new Lobby("TestLobby", host);
+
+        LobbyResponse r1 = new LobbyResponse(true, "ok", "lobby-1", lobby);
+        LobbyResponse r2 = new LobbyResponse(true, "ok", "lobby-1", lobby);
+        LobbyResponse r3 = new LobbyResponse(false, "error", "lobby-2", null);
+
+        assertEquals(r1, r2);
+        assertEquals(r1.hashCode(), r2.hashCode());
+        assertNotEquals(r1, r3);
+        assertNotNull(r1.toString());
+        assertTrue(r1.toString().contains("lobby-1"));
     }
 }
