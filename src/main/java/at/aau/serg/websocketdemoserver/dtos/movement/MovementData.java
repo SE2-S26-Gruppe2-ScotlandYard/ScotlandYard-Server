@@ -5,7 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-@Data   //NOSONAR
+@Data
 @AllArgsConstructor
 @NoArgsConstructor
 public class MovementData {
