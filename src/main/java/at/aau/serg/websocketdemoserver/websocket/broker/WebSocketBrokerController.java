@@ -43,38 +43,27 @@ public class WebSocketBrokerController {
     }
 
     @MessageMapping("/move")
-    public void handleMove(@Payload MovementMessage movement) {
+    @SendTo("/topic/move-response")
+    public MovementResponse handleMove(@Payload MovementMessage movement) {
+
         if (movement == null) {
-            messagingTemplate.convertAndSend("/topic/errors", "NULL MESSAGE");
-            return;
+            return new MovementResponse(false, "NULL MESSAGE", 0, null);
         }
 
         if (movement.getGameId() == null || movement.getPlayerId() == null) {
-            messagingTemplate.convertAndSend(
-                    "/topic/errors",
-                    new MovementResponse(false, "Invalid movement data", 0, null)
-            );
-            return;
+            return new MovementResponse(false, "Invalid movement data", 0, null);
         }
 
         GameState gameState = gameController.getGame(movement.getGameId());
 
         try {
             if (gameState == null) {
-                messagingTemplate.convertAndSend(
-                        "/topic/errors",
-                        new MovementResponse(false, "Game not found", 0, null)
-                );
-                return;
+                return new MovementResponse(false, "Game not found", 0, null);
             }
 
             Integer playerPosition = gameState.getPlayerPosition(movement.getPlayerId());
             if (playerPosition == null) {
-                messagingTemplate.convertAndSend(
-                        "/topic/errors",
-                        new MovementResponse(false, "Invalid movement data", 0, null)
-                );
-                return;
+                return new MovementResponse(false, "Invalid movement data", 0, null);
             }
 
             boolean success = gameState.movePlayer(
@@ -89,33 +78,23 @@ public class WebSocketBrokerController {
             );
 
             if (!success) {
-                messagingTemplate.convertAndSend(
-                        "/topic/errors",
-                        new MovementResponse(
-                                false,
-                                "Invalid move",
-                                gameState.getPlayerPosition(movement.getPlayerId()),
-                                null
-                        )
+                return new MovementResponse(
+                        false,
+                        "Invalid move",
+                        gameState.getPlayerPosition(movement.getPlayerId()),
+                        null
                 );
-                return;
             }
 
-            messagingTemplate.convertAndSend(
-                    "/topic/move-response",
-                    new MovementResponse(
-                            true,
-                            "Movement successful",
-                            gameState.getPlayerPosition(movement.getPlayerId()),
-                            null
-                    )
+            return new MovementResponse(
+                    true,
+                    "Movement successful",
+                    gameState.getPlayerPosition(movement.getPlayerId()),
+                    null
             );
 
         } catch (Exception e) {
-            messagingTemplate.convertAndSend(
-                    "/topic/errors",
-                    new MovementResponse(false, "Error: " + e.getMessage(), 0, null)
-            );
+            return new MovementResponse(false, "Error: " + e.getMessage(), 0, null);
         }
     }
 
