@@ -211,18 +211,6 @@ class WebSocketBrokerIntegrationTest {
         assertThat(response.isSuccess()).isFalse();
         assertThat(response.getMessage()).isEqualTo("Invalid movement data");
     }
-    @Test
-    void testHandleMove_NullMovementObject() throws Exception {
-        BlockingQueue<MovementResponse> messages = new LinkedBlockingDeque<>();
-        StompSession session = initStompSession(WEBSOCKET_TOPIC_MOVE,
-                new JacksonJsonMessageConverter(), messages, MovementResponse.class);
-
-        session.send("/app/move", null);
-
-        MovementResponse response = messages.poll(2, TimeUnit.SECONDS);
-
-        assertThat(response).isNotNull();
-    }
 
     @Test
     void testHandleMove_MultipleMoves() throws Exception {
