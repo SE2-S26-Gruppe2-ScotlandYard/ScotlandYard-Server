@@ -10,6 +10,7 @@ import at.aau.serg.websocketdemoserver.lobby.Role;
 import at.aau.serg.websocketdemoserver.lobby.User;
 import at.aau.serg.websocketdemoserver.service.GameController;
 import at.aau.serg.websocketdemoserver.websocket.StompFrameHandlerClientImpl;
+import at.aau.serg.websocketdemoserver.websocket.broker.WebSocketBrokerController;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -276,6 +277,42 @@ class WebSocketBrokerIntegrationTest {
 
         assertThat(r1).isNotNull();
         assertThat(r2).isNotNull();
+    }
+    @Test
+    void coverage_handleMove_nullMovement_direct() {
+        WebSocketBrokerController controller = new WebSocketBrokerController();
+
+        MovementResponse response = controller.handleMove(null);
+
+        assertThat(response).isNotNull();
+        assertThat(response.isSuccess()).isFalse();
+    }
+
+    @Test
+    void coverage_handleMove_invalidPlayerPosition_direct() {
+        WebSocketBrokerController controller = new WebSocketBrokerController();
+
+        MovementMessage msg = new MovementMessage();
+        msg.setGameId("unknownGame");
+        msg.setPlayerId("invalid");
+
+        MovementResponse response = controller.handleMove(msg);
+
+        assertThat(response).isNotNull();
+        assertThat(response.isSuccess()).isFalse();
+    }
+
+    @Test
+    void coverage_handleMove_exception_direct() {
+        WebSocketBrokerController controller = new WebSocketBrokerController();
+
+        MovementMessage msg = new MovementMessage();
+        msg.setGameId("1");
+        msg.setPlayerId("p1");
+
+        MovementResponse response = controller.handleMove(msg);
+
+        assertThat(response).isNotNull();
     }
     /**
      * @return The Stomp session for the WebSocket connection (Stomp - WebSocket is comparable to HTTP - TCP).
