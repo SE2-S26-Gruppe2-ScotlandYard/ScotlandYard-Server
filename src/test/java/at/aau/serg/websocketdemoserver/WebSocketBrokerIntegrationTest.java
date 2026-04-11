@@ -211,7 +211,41 @@ class WebSocketBrokerIntegrationTest {
         assertThat(response.isSuccess()).isFalse();
         assertThat(response.getMessage()).isEqualTo("Invalid movement data");
     }
+    @Test
+    void testHandleMove_NullMovementObject() throws Exception {
+        BlockingQueue<MovementResponse> messages = new LinkedBlockingDeque<>();
+        StompSession session = initStompSession(WEBSOCKET_TOPIC_MOVE,
+                new JacksonJsonMessageConverter(), messages, MovementResponse.class);
 
+        session.send("/app/move", null);
+
+        MovementResponse response = messages.poll(2, TimeUnit.SECONDS);
+
+        assertThat(response).isNotNull();
+    }
+
+    @Test
+    void testHandleMove_MultipleMoves() throws Exception {
+        BlockingQueue<MovementResponse> messages = new LinkedBlockingDeque<>();
+        StompSession session = initStompSession(WEBSOCKET_TOPIC_MOVE,
+                new JacksonJsonMessageConverter(), messages, MovementResponse.class);
+
+        MovementMessage movement = new MovementMessage();
+        movement.setGameId(gameId);
+        movement.setPlayerId(playerId);
+        movement.setTicket(TicketType.WALKING);
+        movement.setTargetPosition(10);
+        movement.setTimestamp(System.currentTimeMillis());
+
+        session.send("/app/move", movement);
+        session.send("/app/move", movement);
+
+        MovementResponse response1 = messages.poll(2, TimeUnit.SECONDS);
+        MovementResponse response2 = messages.poll(2, TimeUnit.SECONDS);
+
+        assertThat(response1).isNotNull();
+        assertThat(response2).isNotNull();
+    }
     /**
      * @return The Stomp session for the WebSocket connection (Stomp - WebSocket is comparable to HTTP - TCP).
      */
