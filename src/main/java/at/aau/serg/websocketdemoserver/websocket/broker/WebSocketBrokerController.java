@@ -26,6 +26,10 @@ public class WebSocketBrokerController {
     private final LobbyService lobbyService = new LobbyService();
     private final SimpMessagingTemplate messagingTemplate;
 
+    public WebSocketBrokerController() {
+        this.messagingTemplate = null;
+    }
+
     public WebSocketBrokerController(SimpMessagingTemplate messagingTemplate) {
         this.messagingTemplate = messagingTemplate;
     }
@@ -72,10 +76,12 @@ public class WebSocketBrokerController {
                     movement.getTargetPosition()
             );
 
-            messagingTemplate.convertAndSend(
-                    "/topic/game/" + movement.getGameId(),
-                    gameState
-            );
+            if (messagingTemplate != null) {
+                messagingTemplate.convertAndSend(
+                        "/topic/game/" + movement.getGameId(),
+                        gameState
+                );
+            }
 
             if (!success) {
                 return new MovementResponse(
