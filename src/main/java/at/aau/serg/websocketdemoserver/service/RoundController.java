@@ -4,12 +4,13 @@ import at.aau.serg.websocketdemoserver.gamelogic.turn.TurnType;
 import lombok.Getter;
 
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Set;
-
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /*
  * Manages the round of a Scotland Yard game.
+ * Implemented thread safety to let the Detectives move as they wish.
  *
  * 1. Round starts as MRX turn.
  *    - Once MRX has moved, the phase automatically advances to DETECTIVES turn.
@@ -20,14 +21,14 @@ import java.util.Set;
 public class RoundController {
 
     @Getter
-    private int currentRound = 1;
+    private final AtomicInteger currentRound = new AtomicInteger(1);    // using Atomic Integer to increment counter safely
 
-    @Getter
-    private TurnType currentPhase = TurnType.MRX;      // MRX or DETECTIVES
+    @Getter     // using volatile to ensure variable is correctly read by all threads
+    private volatile TurnType currentPhase = TurnType.MRX;      // MRX or DETECTIVES
 
-    private final Set<String> pendingDetectives = Collections.newSetFromMap(new HashMap<>());
+    private final Set<String> pendingDetectives = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
-    private final Set<String> allDetectiveIds = Collections.newSetFromMap(new HashMap<>());
+    private final Set<String> allDetectiveIds = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     public void initDetectives(Set<String> detectiveIds) {
         allDetectiveIds.clear();
@@ -54,7 +55,7 @@ public class RoundController {
 
     // record/save made moves in this round
 
-    public void recordMrXMove() {
+    public synchronized void recordMrXMove() {
         if (currentPhase != TurnType.MRX) {
             throw new IllegalStateException(
                     "Cannot record Mr. X move: current phase is " + currentPhase);
@@ -65,7 +66,7 @@ public class RoundController {
         currentPhase = TurnType.DETECTIVES;
     }
 
-    public void recordDetectiveMove(String detectiveId) {
+    public synchronized void recordDetectiveMove(String detectiveId) {
         if (currentPhase != TurnType.DETECTIVES) {
             throw new IllegalStateException(
                     "Cannot record detective move: current phase is " + currentPhase);
@@ -79,7 +80,7 @@ public class RoundController {
 
         // when every detective has moved, advance to the next round
         if (pendingDetectives.isEmpty()) {
-            currentRound++;
+            currentRound.incrementAndGet();
             currentPhase = TurnType.MRX;
         }
     }
