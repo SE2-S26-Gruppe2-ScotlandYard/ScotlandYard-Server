@@ -119,14 +119,7 @@ class WebSocketBrokerIntegrationTest {
         gameState.getRoundController().setCurrentPhase(TurnType.DETECTIVES);
         gameState.getRoundController().addPendingDetectives(playerId);
 
-        MovementMessage movement = new MovementMessage();
-        movement.setGameId(gameId);
-        movement.setPlayerId(playerId);
-        movement.setTicket(TicketType.WALKING);
-        movement.setTargetPosition(20);
-        movement.setTimestamp(System.currentTimeMillis());
-
-        session.send("/app/move", movement);
+        session.send("/app/move", createMovementMessage(gameId, playerId, TicketType.WALKING, 20));
 
         MovementResponse actualResponse = messages.poll(2, TimeUnit.SECONDS);
 
@@ -140,14 +133,7 @@ class WebSocketBrokerIntegrationTest {
         BlockingQueue<MovementResponse> messages = new LinkedBlockingDeque<>();
         StompSession session = initStompSession(WEBSOCKET_TOPIC_MOVE, new JacksonJsonMessageConverter(), messages, MovementResponse.class);
 
-        MovementMessage movement = new MovementMessage();
-        movement.setGameId("invalidGameId");
-        movement.setPlayerId(playerId);
-        movement.setTicket(TicketType.WALKING);
-        movement.setTargetPosition(20);
-        movement.setTimestamp(System.currentTimeMillis());
-
-        session.send("/app/move", movement);
+        session.send("/app/move", createMovementMessage("invalidGameId", playerId, TicketType.WALKING, 20));
 
         MovementResponse actualResponse = messages.poll(2, TimeUnit.SECONDS);
 
@@ -161,14 +147,7 @@ class WebSocketBrokerIntegrationTest {
         BlockingQueue<MovementResponse> messages = new LinkedBlockingDeque<>();
         StompSession session = initStompSession(WEBSOCKET_TOPIC_MOVE, new JacksonJsonMessageConverter(), messages, MovementResponse.class);
 
-        MovementMessage movement = new MovementMessage();
-        movement.setGameId(gameId);
-        movement.setPlayerId("invalidPlayerId");
-        movement.setTicket(TicketType.WALKING);
-        movement.setTargetPosition(20);
-        movement.setTimestamp(System.currentTimeMillis());
-
-        session.send("/app/move", movement);
+        session.send("/app/move", createMovementMessage(gameId, "invalidPlayerId", TicketType.WALKING, 20));
 
         MovementResponse response = messages.poll(2, TimeUnit.SECONDS);
 
@@ -182,14 +161,7 @@ class WebSocketBrokerIntegrationTest {
         BlockingQueue<MovementResponse> messages = new LinkedBlockingDeque<>();
         StompSession session = initStompSession(WEBSOCKET_TOPIC_MOVE, new JacksonJsonMessageConverter(), messages, MovementResponse.class);
 
-        MovementMessage movement = new MovementMessage();
-        movement.setGameId(null);
-        movement.setPlayerId(playerId);
-        movement.setTicket(TicketType.WALKING);
-        movement.setTargetPosition(20);
-        movement.setTimestamp(System.currentTimeMillis());
-
-        session.send("/app/move", movement);
+        session.send("/app/move", createMovementMessage(null, playerId, TicketType.WALKING, 20));
 
         MovementResponse response = messages.poll(2, TimeUnit.SECONDS);
 
@@ -203,14 +175,7 @@ class WebSocketBrokerIntegrationTest {
         BlockingQueue<MovementResponse> messages = new LinkedBlockingDeque<>();
         StompSession session = initStompSession(WEBSOCKET_TOPIC_MOVE, new JacksonJsonMessageConverter(), messages, MovementResponse.class);
 
-        MovementMessage movement = new MovementMessage();
-        movement.setGameId(gameId);
-        movement.setPlayerId(null);
-        movement.setTicket(TicketType.WALKING);
-        movement.setTargetPosition(20);
-        movement.setTimestamp(System.currentTimeMillis());
-
-        session.send("/app/move", movement);
+        session.send("/app/move", createMovementMessage(gameId, null, TicketType.WALKING, 20));
 
         MovementResponse response = messages.poll(2, TimeUnit.SECONDS);
 
@@ -222,15 +187,9 @@ class WebSocketBrokerIntegrationTest {
     @Test
     void testHandleMove_MultipleMoves() throws Exception {
         BlockingQueue<MovementResponse> messages = new LinkedBlockingDeque<>();
-        StompSession session = initStompSession(WEBSOCKET_TOPIC_MOVE,
-                new JacksonJsonMessageConverter(), messages, MovementResponse.class);
+        StompSession session = initStompSession(WEBSOCKET_TOPIC_MOVE, new JacksonJsonMessageConverter(), messages, MovementResponse.class);
 
-        MovementMessage movement = new MovementMessage();
-        movement.setGameId(gameId);
-        movement.setPlayerId(playerId);
-        movement.setTicket(TicketType.WALKING);
-        movement.setTargetPosition(10);
-        movement.setTimestamp(System.currentTimeMillis());
+        MovementMessage movement = createMovementMessage(gameId, playerId, TicketType.WALKING, 10);
 
         session.send("/app/move", movement);
         session.send("/app/move", movement);
@@ -244,17 +203,9 @@ class WebSocketBrokerIntegrationTest {
     @Test
     void testHandleMove_InvalidTicket() throws Exception {
         BlockingQueue<MovementResponse> messages = new LinkedBlockingDeque<>();
-        StompSession session = initStompSession(WEBSOCKET_TOPIC_MOVE,
-                new JacksonJsonMessageConverter(), messages, MovementResponse.class);
+        StompSession session = initStompSession(WEBSOCKET_TOPIC_MOVE, new JacksonJsonMessageConverter(), messages, MovementResponse.class);
 
-        MovementMessage movement = new MovementMessage();
-        movement.setGameId(gameId);
-        movement.setPlayerId(playerId);
-        movement.setTicket(null); // invalid
-        movement.setTargetPosition(20);
-        movement.setTimestamp(System.currentTimeMillis());
-
-        session.send("/app/move", movement);
+        session.send("/app/move", createMovementMessage(gameId, playerId, null, 20));
 
         MovementResponse response = messages.poll(2, TimeUnit.SECONDS);
 
@@ -265,15 +216,9 @@ class WebSocketBrokerIntegrationTest {
     @Test
     void testHandleMove_RepeatedMoves() throws Exception {
         BlockingQueue<MovementResponse> messages = new LinkedBlockingDeque<>();
-        StompSession session = initStompSession(WEBSOCKET_TOPIC_MOVE,
-                new JacksonJsonMessageConverter(), messages, MovementResponse.class);
+        StompSession session = initStompSession(WEBSOCKET_TOPIC_MOVE, new JacksonJsonMessageConverter(), messages, MovementResponse.class);
 
-        MovementMessage movement = new MovementMessage();
-        movement.setGameId(gameId);
-        movement.setPlayerId(playerId);
-        movement.setTicket(TicketType.WALKING);
-        movement.setTargetPosition(5);
-        movement.setTimestamp(System.currentTimeMillis());
+        MovementMessage movement = createMovementMessage(gameId, playerId, TicketType.WALKING, 5);
 
         session.send("/app/move", movement);
         session.send("/app/move", movement);
@@ -298,11 +243,7 @@ class WebSocketBrokerIntegrationTest {
     void coverage_handleMove_invalidPlayerPosition_direct() {
         WebSocketBrokerController controller = new WebSocketBrokerController();
 
-        MovementMessage msg = new MovementMessage();
-        msg.setGameId("unknownGame");
-        msg.setPlayerId("invalid");
-
-        MovementResponse response = controller.handleMove(msg);
+        MovementResponse response = controller.handleMove(createMovementMessage("unknownGame", "invalid", null, 20));
 
         assertThat(response).isNotNull();
         assertThat(response.isSuccess()).isFalse();
@@ -312,24 +253,16 @@ class WebSocketBrokerIntegrationTest {
     void coverage_handleMove_exception_direct() {
         WebSocketBrokerController controller = new WebSocketBrokerController();
 
-        MovementMessage msg = new MovementMessage();
-        msg.setGameId("1");
-        msg.setPlayerId("p1");
-
-        MovementResponse response = controller.handleMove(msg);
+        MovementResponse response = controller.handleMove(createMovementMessage("1", "p1", null, 20));
 
         assertThat(response).isNotNull();
     }
+
     @Test
     void coverage_handleMove_invalidMove_branch() {
         WebSocketBrokerController controller = new WebSocketBrokerController();
 
-        MovementMessage msg = new MovementMessage();
-        msg.setGameId("game1");
-        msg.setPlayerId("user1");
-        msg.setTargetPosition(-999); // force invalid move
-
-        MovementResponse response = controller.handleMove(msg);
+        MovementResponse response = controller.handleMove(createMovementMessage("game1", playerId, null, -999));
 
         assertThat(response).isNotNull();
         assertThat(response.isSuccess()).isFalse();
@@ -349,39 +282,9 @@ class WebSocketBrokerIntegrationTest {
         gameState.getRoundController().setCurrentPhase(TurnType.DETECTIVES);
         gameState.getRoundController().addPendingDetectives(playerId);
 
-        MovementMessage msg = new MovementMessage();
-        msg.setGameId(gameId);
-        msg.setPlayerId(playerId);
-        msg.setTicket(TicketType.WALKING);
-        msg.setTargetPosition(20);
-        msg.setTimestamp(System.currentTimeMillis());
-
-        controller.handleMove(msg);
+        controller.handleMove(createMovementMessage(gameId, playerId, TicketType.WALKING, 20));
 
         verify(template).convertAndSend(anyString(), any(Object.class));
-    }
-    /**
-     * @return The Stomp session for the WebSocket connection (Stomp - WebSocket is comparable to HTTP - TCP).
-     */
-    public <T> StompSession initStompSession(String destination,
-                                             MessageConverter messageConverter,
-                                             BlockingQueue<T> queue,
-                                             Class<T> expectedType) throws Exception {
-        WebSocketStompClient stompClient = new WebSocketStompClient(new StandardWebSocketClient());
-        stompClient.setMessageConverter(messageConverter);
-
-        // connect client to the websocket server
-        StompSession session = stompClient.connectAsync(String.format(WEBSOCKET_URI, port),
-                        new StompSessionHandlerAdapter() {
-                        })
-                // wait 1 sec for the client to be connected
-                .get(1, TimeUnit.SECONDS);
-
-        // subscribes to the topic defined in WebSocketBrokerController
-        // and adds received messages to WebSocketBrokerIntegrationTest#messages
-        session.subscribe(destination, new StompFrameHandlerClientImpl<>(queue, expectedType));
-
-        return session;
     }
 
     @Test
@@ -393,14 +296,8 @@ class WebSocketBrokerIntegrationTest {
         GameState gameState = gameController.getGame(gameId);
         gameState.setPlayerPosition(playerId, 2);
 
-        MovementMessage movement = new MovementMessage();
-        movement.setGameId(gameId);
-        movement.setPlayerId(playerId);
-        movement.setTicket(TicketType.WALKING);
-        movement.setTargetPosition(20);
-        movement.setTimestamp(System.currentTimeMillis());
 
-        session.send("/app/move", movement);
+        session.send("/app/move", createMovementMessage(gameId, playerId, TicketType.WALKING, 20));
 
         MovementResponse response = messages.poll(2, TimeUnit.SECONDS);
         assertThat(response).isNotNull();
@@ -419,14 +316,7 @@ class WebSocketBrokerIntegrationTest {
         // switch to DETECTIVES phase
         gameState.getRoundController().setCurrentPhase(TurnType.DETECTIVES);
 
-        MovementMessage movement = new MovementMessage();
-        movement.setGameId(gameId);
-        movement.setPlayerId("user2");
-        movement.setTicket(TicketType.WALKING);
-        movement.setTargetPosition(20);
-        movement.setTimestamp(System.currentTimeMillis());
-
-        session.send("/app/move", movement);
+        session.send("/app/move", createMovementMessage(gameId, "user2", TicketType.WALKING, 20));
 
         MovementResponse response = messages.poll(2, TimeUnit.SECONDS);
         assertThat(response).isNotNull();
@@ -447,14 +337,7 @@ class WebSocketBrokerIntegrationTest {
         gameState.getRoundController().setCurrentPhase(TurnType.DETECTIVES);
         gameState.getRoundController().addPendingDetectives("user3"); // no playerId in pending
 
-        MovementMessage movement = new MovementMessage();
-        movement.setGameId(gameId);
-        movement.setPlayerId(playerId);                     // user1 tries to move
-        movement.setTicket(TicketType.WALKING);
-        movement.setTargetPosition(20);
-        movement.setTimestamp(System.currentTimeMillis());
-
-        session.send("/app/move", movement);
+        session.send("/app/move", createMovementMessage(gameId, playerId, TicketType.WALKING, 20));
 
         MovementResponse response = messages.poll(2, TimeUnit.SECONDS);
         assertThat(response).isNotNull();
@@ -604,6 +487,27 @@ class WebSocketBrokerIntegrationTest {
 
         assertThat(response.isSuccess()).isFalse();
         assertThat(response.getMessage()).contains("Invalid move");
+    }
+
+    public <T> StompSession initStompSession(String destination,
+                                             MessageConverter messageConverter,
+                                             BlockingQueue<T> queue,
+                                             Class<T> expectedType) throws Exception {
+        WebSocketStompClient stompClient = new WebSocketStompClient(new StandardWebSocketClient());
+        stompClient.setMessageConverter(messageConverter);
+
+        // connect client to the websocket server
+        StompSession session = stompClient.connectAsync(String.format(WEBSOCKET_URI, port),
+                        new StompSessionHandlerAdapter() {
+                        })
+                // wait 1 sec for the client to be connected
+                .get(1, TimeUnit.SECONDS);
+
+        // subscribes to the topic defined in WebSocketBrokerController
+        // and adds received messages to WebSocketBrokerIntegrationTest#messages
+        session.subscribe(destination, new StompFrameHandlerClientImpl<>(queue, expectedType));
+
+        return session;
     }
 
     private static MovementMessage createMovementMessage(String gameId, String playerId, TicketType ticket, int targetPosition) {
