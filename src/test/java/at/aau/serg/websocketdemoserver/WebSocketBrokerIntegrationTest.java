@@ -340,9 +340,21 @@ class WebSocketBrokerIntegrationTest {
         SimpMessagingTemplate template = mock(SimpMessagingTemplate.class);
         WebSocketBrokerController controller = new WebSocketBrokerController(template);
 
+
+        // set current position first
+        GameState gameState = gameController.getGame(gameId);
+        gameState.setPlayerPosition(playerId, 2);
+
+        // set TurnType to DETECTIVES
+        gameState.getRoundController().setCurrentPhase(TurnType.DETECTIVES);
+        gameState.getRoundController().addPendingDetectives(playerId);
+
         MovementMessage msg = new MovementMessage();
-        msg.setGameId("game1");
-        msg.setPlayerId("user1");
+        msg.setGameId(gameId);
+        msg.setPlayerId(playerId);
+        msg.setTicket(TicketType.WALKING);
+        msg.setTargetPosition(20);
+        msg.setTimestamp(System.currentTimeMillis());
 
         controller.handleMove(msg);
 
