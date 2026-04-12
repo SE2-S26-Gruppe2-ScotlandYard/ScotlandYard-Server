@@ -55,6 +55,10 @@ public class RoundController {
         return Collections.unmodifiableSet(pendingDetectives);
     }
 
+    public void addPendingDetectives(String playerId) {
+        pendingDetectives.add(playerId);
+    }
+
     // record/save made moves in this round
 
     public synchronized void recordMrXMove() {
