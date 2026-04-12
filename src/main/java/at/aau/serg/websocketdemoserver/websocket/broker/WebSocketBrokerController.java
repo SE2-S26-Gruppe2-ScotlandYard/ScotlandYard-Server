@@ -9,6 +9,7 @@ import at.aau.serg.websocketdemoserver.dtos.lobby.LobbyResponse;
 import at.aau.serg.websocketdemoserver.dtos.movement.MovementMessage;
 import at.aau.serg.websocketdemoserver.dtos.movement.MovementResponse;
 import at.aau.serg.websocketdemoserver.gamelogic.GameState;
+import at.aau.serg.websocketdemoserver.gamelogic.turn.TurnType;
 import at.aau.serg.websocketdemoserver.lobby.Lobby;
 import at.aau.serg.websocketdemoserver.lobby.User;
 import at.aau.serg.websocketdemoserver.service.GameController;
@@ -70,6 +71,38 @@ public class WebSocketBrokerController {
                 return new MovementResponse(false, "Invalid movement data", 0, null);
             }
 
+            boolean isMrX = gameState.getPlayer(movement.getPlayerId()) != null
+                            && gameState.getPlayer(movement.getPlayerId()).isMrX();
+
+            TurnType phase = gameState.getCurrentPhase();
+
+            if (isMrX && phase != TurnType.MRX) {
+                return new MovementResponse(
+                        false,
+                        "Not Mr. X's turn",
+                        playerPosition,
+                        null
+                );
+            }
+
+            if (!isMrX && phase != TurnType.DETECTIVES) {
+                return new MovementResponse(
+                        false,
+                        "Not the detectives' turn",
+                        playerPosition,
+                        null
+                );
+            }
+
+            if (!isMrX && !gameState.getRoundController().isDetectivePending(movement.getPlayerId())) {
+                return new MovementResponse(
+                        false,
+                        "Detective has already moved this round",
+                        playerPosition,
+                        null
+                );
+            }
+
             boolean success = gameState.movePlayer(
                     movement.getPlayerId(),
                     movement.getTicket(),
@@ -92,9 +125,10 @@ public class WebSocketBrokerController {
                 );
             }
 
+            String phaseInfo = "Round " + gameState.getCurrentRound() + " – phase: " + gameState.getCurrentPhase();
             return new MovementResponse(
                     true,
-                    "Movement successful",
+                    "Movement successful " + phaseInfo,
                     gameState.getPlayerPosition(movement.getPlayerId()),
                     null
             );
