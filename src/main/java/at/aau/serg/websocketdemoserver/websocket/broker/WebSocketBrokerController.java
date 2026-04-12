@@ -1,49 +1,59 @@
 package at.aau.serg.websocketdemoserver.websocket.broker;
 
 import at.aau.serg.websocketdemoserver.dtos.StompMessage;
-import at.aau.serg.websocketdemoserver.dtos.movement.MovementMessage;
-import at.aau.serg.websocketdemoserver.dtos.movement.MovementResponse;
-import at.aau.serg.websocketdemoserver.gamelogic.GameState;
-import at.aau.serg.websocketdemoserver.service.GameController;
 import at.aau.serg.websocketdemoserver.dtos.lobby.CreateLobbyMessage;
 import at.aau.serg.websocketdemoserver.dtos.lobby.DeleteLobbyMessage;
 import at.aau.serg.websocketdemoserver.dtos.lobby.JoinLobbyMessage;
 import at.aau.serg.websocketdemoserver.dtos.lobby.LeaveLobbyMessage;
 import at.aau.serg.websocketdemoserver.dtos.lobby.LobbyResponse;
+import at.aau.serg.websocketdemoserver.dtos.movement.MovementMessage;
+import at.aau.serg.websocketdemoserver.dtos.movement.MovementResponse;
+import at.aau.serg.websocketdemoserver.gamelogic.GameState;
 import at.aau.serg.websocketdemoserver.lobby.Lobby;
 import at.aau.serg.websocketdemoserver.lobby.User;
+import at.aau.serg.websocketdemoserver.service.GameController;
 import at.aau.serg.websocketdemoserver.service.LobbyService;
-
 import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.handler.annotation.SendTo;
-
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
-
-
-
 
 @Controller
 public class WebSocketBrokerController {
-    @MessageMapping("/hello")
-    @SendTo("/topic/hello-response")
-    public String handleHello(String text) {
-        // TODO handle the messages here
-        return "echo from broker: "+text;
-    }
-    @MessageMapping("/object")
-    @SendTo("/topic/rcv-object")
-    public StompMessage handleObject(StompMessage msg) {
-
-       return msg;
-    }
 
     private final GameController gameController = GameController.getInstance();
     private final LobbyService lobbyService = new LobbyService();
+    private final SimpMessagingTemplate messagingTemplate;
+
+    public WebSocketBrokerController() {
+        this.messagingTemplate = null;
+    }
+
+    public WebSocketBrokerController(SimpMessagingTemplate messagingTemplate) {
+        this.messagingTemplate = messagingTemplate;
+    }
+
+    @MessageMapping("/hello")
+    @SendTo("/topic/hello-response")
+    public String handleHello(String text) {
+        return "echo from broker: " + text;
+    }
+
+    @MessageMapping("/object")
+    @SendTo("/topic/rcv-object")
+    public StompMessage handleObject(StompMessage msg) {
+        return msg;
+    }
 
     @MessageMapping("/move")
     @SendTo("/topic/move-response")
-    public MovementResponse handleMove(MovementMessage movement) {
-        // validate gameId and playerId first
+    public MovementResponse handleMove(@Payload MovementMessage movement) {
+
+        if (movement == null) {
+            return new MovementResponse(false, "NULL MESSAGE", 0, null);
+        }
+
         if (movement.getGameId() == null || movement.getPlayerId() == null) {
             return new MovementResponse(false, "Invalid movement data", 0, null);
         }
@@ -55,32 +65,41 @@ public class WebSocketBrokerController {
                 return new MovementResponse(false, "Game not found", 0, null);
             }
 
-            // check if player exists
             Integer playerPosition = gameState.getPlayerPosition(movement.getPlayerId());
             if (playerPosition == null) {
                 return new MovementResponse(false, "Invalid movement data", 0, null);
             }
 
-            // move
             boolean success = gameState.movePlayer(
                     movement.getPlayerId(),
                     movement.getTicket(),
                     movement.getTargetPosition()
             );
 
-            if (success) {
-                return new MovementResponse(
-                        true,
-                        "Movement successful",
-                        gameState.getPlayerPosition(movement.getPlayerId()),    // new position
-                        null
+            if (messagingTemplate != null) {
+                messagingTemplate.convertAndSend(
+                        "/topic/game/" + movement.getGameId(),
+                        gameState
                 );
-            } else {
-                return new MovementResponse(false, "Invalid move", gameState.getPlayerPosition(movement.getPlayerId()), null);
             }
 
+            if (!success) {
+                return new MovementResponse(
+                        false,
+                        "Invalid move",
+                        gameState.getPlayerPosition(movement.getPlayerId()),
+                        null
+                );
+            }
+
+            return new MovementResponse(
+                    true,
+                    "Movement successful",
+                    gameState.getPlayerPosition(movement.getPlayerId()),
+                    null
+            );
+
         } catch (Exception e) {
-            assert gameState != null;
             return new MovementResponse(false, "Error: " + e.getMessage(), 0, null);
         }
     }
@@ -150,5 +169,4 @@ public class WebSocketBrokerController {
             return new LobbyResponse(false, e.getMessage(), null, null);
         }
     }
-
 }
