@@ -2,6 +2,7 @@ package at.aau.serg.websocketdemoserver.service;
 
 import at.aau.serg.websocketdemoserver.gamelogic.turn.TurnType;
 import lombok.Getter;
+import lombok.Setter;
 
 import java.util.Collections;
 import java.util.Set;
@@ -24,6 +25,7 @@ public class RoundController {
     private final AtomicInteger currentRound = new AtomicInteger(1);    // using Atomic Integer to increment counter safely
 
     @Getter     // using volatile to ensure variable is correctly read by all threads
+    @Setter
     private volatile TurnType currentPhase = TurnType.MRX;      // MRX or DETECTIVES
 
     private final Set<String> pendingDetectives = Collections.newSetFromMap(new ConcurrentHashMap<>());
