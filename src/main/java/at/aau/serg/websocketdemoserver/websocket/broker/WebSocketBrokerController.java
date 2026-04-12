@@ -125,10 +125,9 @@ public class WebSocketBrokerController {
                 );
             }
 
-            String phaseInfo = "Round " + gameState.getCurrentRound() + " – phase: " + gameState.getCurrentPhase();
             return new MovementResponse(
                     true,
-                    "Movement successful " + phaseInfo,
+                    "Movement successful",
                     gameState.getPlayerPosition(movement.getPlayerId()),
                     null
             );
