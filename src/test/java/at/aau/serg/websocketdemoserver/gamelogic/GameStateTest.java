@@ -8,6 +8,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import at.aau.serg.websocketdemoserver.gamelogic.player.TicketType;
+import at.aau.serg.websocketdemoserver.gamelogic.turn.TurnType;
 import at.aau.serg.websocketdemoserver.lobby.Lobby;
 import at.aau.serg.websocketdemoserver.lobby.Role;
 import at.aau.serg.websocketdemoserver.lobby.User;
@@ -351,6 +352,10 @@ class GameStateTest {
         // get ticket count before move
         int ticketCountBefore = gameState.getPlayer(hostUser.id()).getTickets().get(TicketType.WALKING);
 
+        // set TurnType to DETECTIVES
+        gameState.getRoundController().setCurrentPhase(TurnType.DETECTIVES);
+        gameState.getRoundController().addPendingDetectives(hostUser.id());
+
         boolean result = gameState.movePlayer(hostUser.id(), TicketType.WALKING, 20);
 
         assertTrue(result);
@@ -368,7 +373,16 @@ class GameStateTest {
 
         // use all walking tickets (Detective starts with 10 walking tickets)
         for (int i = 0; i < 6; i++) {
+            // set TurnType to DETECTIVES
+            gameState.getRoundController().setCurrentPhase(TurnType.DETECTIVES);
+            gameState.getRoundController().addPendingDetectives(hostUser.id());
+
             gameState.movePlayer(hostUser.id(), TicketType.WALKING, 20);
+
+            // set TurnType to DETECTIVES
+            gameState.getRoundController().setCurrentPhase(TurnType.DETECTIVES);
+            gameState.getRoundController().addPendingDetectives(hostUser.id());
+
             // move back to original position for next move
             gameState.movePlayer(hostUser.id(), TicketType.WALKING, 2);
         }
@@ -411,8 +425,12 @@ class GameStateTest {
             boolean result = gameState.movePlayer(mrXUser.id(), TicketType.WALKING, 20);
             assertTrue(result);
             assertEquals(20, gameState.getPlayerPosition(mrXUser.id()));
+            // set TurnType to MRX again
+            gameState.getRoundController().setCurrentPhase(TurnType.MRX);
             // move back
             gameState.movePlayer(mrXUser.id(), TicketType.WALKING, 2);
+            // set TurnType to MRX again
+            gameState.getRoundController().setCurrentPhase(TurnType.MRX);
         }
     }
 
@@ -470,12 +488,24 @@ class GameStateTest {
 
         gameState.setPlayerPosition(hostUser.id(), 77);
 
+        // set TurnType to DETECTIVES
+        gameState.getRoundController().setCurrentPhase(TurnType.DETECTIVES);
+        gameState.getRoundController().addPendingDetectives(hostUser.id());
+
         // try different ticket types that should be valid
         gameState.movePlayer(hostUser.id(), TicketType.WALKING, 78);
         assertEquals(78, gameState.getPlayerPosition(hostUser.id()));
 
+        // set TurnType to DETECTIVES
+        gameState.getRoundController().setCurrentPhase(TurnType.DETECTIVES);
+        gameState.getRoundController().addPendingDetectives(hostUser.id());
+
         gameState.movePlayer(hostUser.id(), TicketType.ESCOOTER, 79);
         assertEquals(79, gameState.getPlayerPosition(hostUser.id()));
+
+        // set TurnType to DETECTIVES
+        gameState.getRoundController().setCurrentPhase(TurnType.DETECTIVES);
+        gameState.getRoundController().addPendingDetectives(hostUser.id());
 
         gameState.movePlayer(hostUser.id(), TicketType.CARSHARING, 111);
         assertEquals(111, gameState.getPlayerPosition(hostUser.id()));
