@@ -9,6 +9,8 @@ import at.aau.serg.websocketdemoserver.dtos.lobby.LobbyResponse;
 import at.aau.serg.websocketdemoserver.dtos.movement.MovementMessage;
 import at.aau.serg.websocketdemoserver.dtos.movement.MovementResponse;
 import at.aau.serg.websocketdemoserver.gamelogic.GameState;
+import at.aau.serg.websocketdemoserver.gamelogic.player.Player;
+import at.aau.serg.websocketdemoserver.gamelogic.player.TicketType;
 import at.aau.serg.websocketdemoserver.gamelogic.turn.TurnType;
 import at.aau.serg.websocketdemoserver.lobby.Lobby;
 import at.aau.serg.websocketdemoserver.lobby.User;
@@ -103,18 +105,35 @@ public class WebSocketBrokerController {
                 );
             }
 
+            if (movement.getTicket() == TicketType.DOUBLE) {
+                boolean success = gameState.activateDoubleMove();
+
+                if (!success) {
+                    Player player = gameState.getPlayer(movement.getPlayerId());
+                    if (!player.isMrX()) {
+                        return new MovementResponse(false, "Only Mr. X can use the DOUBLE ticket", playerPosition, null);
+                    }
+                    if (!player.hasTicket(TicketType.DOUBLE)) {
+                        return new MovementResponse(false, "No DOUBLE tickets remaining", playerPosition, null);
+                    }
+                    if (gameState.getRoundController().isDoubleMoveActive()) {
+                        return new MovementResponse(false, "Double move is already in use", playerPosition, null);
+                    }
+                    return new MovementResponse(false, "Cannot activate double move ticket", playerPosition, null);
+                }
+
+                broadcastGameState(movement.getGameId(), gameState);
+
+                return new MovementResponse(true, "Double move ticket activated", playerPosition, null);
+            }
+
             boolean success = gameState.movePlayer(
                     movement.getPlayerId(),
                     movement.getTicket(),
                     movement.getTargetPosition()
             );
 
-            if (messagingTemplate != null) {        //broadcast gameState
-                messagingTemplate.convertAndSend(
-                        "/topic/game/" + movement.getGameId(),
-                        gameState
-                );
-            }
+            broadcastGameState(movement.getGameId(), gameState);
 
             if (!success) {
                 return new MovementResponse(
@@ -126,7 +145,7 @@ public class WebSocketBrokerController {
             }
 
             String extra = (isMrX && gameState.getRoundController().isDoubleMoveActive())
-                    ? " (1 move remaining due to double move)" : "";
+                    ? " (1 move remaining due to double move ticket)" : "";
 
             return new MovementResponse(
                     true,
@@ -203,6 +222,12 @@ public class WebSocketBrokerController {
             return new LobbyResponse(true, "Lobby deleted", message.getLobbyId(), null);
         } catch (Exception e) {
             return new LobbyResponse(false, e.getMessage(), null, null);
+        }
+    }
+
+    private void broadcastGameState(String gameId, GameState gameState) {
+        if (messagingTemplate != null) {        //broadcast gameState
+            messagingTemplate.convertAndSend("/topic/game/" + gameId, gameState);
         }
     }
 }
