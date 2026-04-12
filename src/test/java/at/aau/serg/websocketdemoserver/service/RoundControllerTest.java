@@ -121,6 +121,134 @@ class RoundControllerTest {
     }
 
     @Test
+    void testRecordMrXMove_resetsMovesRemainingToOne() {
+        roundController.recordMrXMove();
+
+        assertEquals(1, roundController.getMrxMovesRemaining());   // reset to 1 for next round
+    }
+
+    @Test
+    void testActivateDoubleMove_setsMrXMovesRemainingToTwo() {
+        roundController.activateDoubleMove();
+
+        assertEquals(2, roundController.getMrxMovesRemaining());
+    }
+
+    @Test
+    void testActivateDoubleMove_setsDoubleMoveActiveTrue() {
+        roundController.activateDoubleMove();
+
+        assertTrue(roundController.isDoubleMoveActive());
+    }
+
+    @Test
+    void testActivateDoubleMove_duringDetectivesPhase() {
+        roundController.setCurrentPhase(TurnType.DETECTIVES);
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class, roundController::activateDoubleMove);
+        assertTrue(ex.getMessage().contains("Cannot activate double move"));
+    }
+
+    @Test
+    void testActivateDoubleMove_whenAlreadyActive() {
+        roundController.activateDoubleMove();
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class, roundController::activateDoubleMove);
+        assertTrue(ex.getMessage().contains("already in use"));
+    }
+
+    @Test
+    void testDoubleMove_phaseStaysMRX() {
+        roundController.activateDoubleMove();
+        roundController.recordMrXMove();  // first of two moves
+
+        assertEquals(TurnType.MRX, roundController.getCurrentPhase());
+        assertTrue(roundController.isMrXTurn());
+    }
+
+    @Test
+    void testDoubleMove_movesRemainingDecrementsToOne() {
+        roundController.activateDoubleMove();
+        roundController.recordMrXMove();
+
+        assertEquals(1, roundController.getMrxMovesRemaining());
+    }
+
+    @Test
+    void testDoubleMove_firstRecordMrXMove_doubleMoveStillActive() {
+        roundController.activateDoubleMove();
+        roundController.recordMrXMove();
+
+        assertTrue(roundController.isDoubleMoveActive());
+    }
+
+    @Test
+    void testDoubleMove_secondRecordMrXMove_switchesToDetectives() {
+        roundController.initDetectives(Set.of("d1"));
+        roundController.activateDoubleMove();
+        roundController.recordMrXMove();  // first move – phase stays MRX
+        roundController.recordMrXMove();  // second move – phase advances
+
+        assertEquals(TurnType.DETECTIVES, roundController.getCurrentPhase());
+    }
+
+    @Test
+    void testDoubleMove_doubleMoveActiveResetsFalse() {
+        roundController.initDetectives(Set.of("d1"));
+        roundController.activateDoubleMove();
+        roundController.recordMrXMove();
+        roundController.recordMrXMove();
+
+        assertFalse(roundController.isDoubleMoveActive());
+    }
+
+    @Test
+    void testDoubleMove_movesRemainingResetsToOne() {
+        roundController.initDetectives(Set.of("d1"));
+        roundController.activateDoubleMove();
+        roundController.recordMrXMove();
+        roundController.recordMrXMove();
+
+        assertEquals(1, roundController.getMrxMovesRemaining());
+    }
+
+    @Test
+    void testDoubleMove_detectiveCannotMoveBetweenMrXMoves() {
+        roundController.initDetectives(Set.of("d1"));
+        roundController.activateDoubleMove();
+        roundController.recordMrXMove();  // still MRX phase
+
+        // canMove for a detective must be false while phase is MRX
+        assertFalse(roundController.canMove("d1", false));
+    }
+
+    @Test
+    void testDoubleMove_mrXCanMoveForBothMoves() {
+        roundController.activateDoubleMove();
+        assertTrue(roundController.canMove("mrx", true));   // before first move
+
+        roundController.recordMrXMove();
+        assertTrue(roundController.canMove("mrx", true));   // before second move
+
+        roundController.recordMrXMove();
+        assertFalse(roundController.canMove("mrx", true));   // after second move
+    }
+
+    @Test
+    void testDoubleMove_RoundAdvancesCorrectly() {
+        roundController.initDetectives(Set.of("d1"));
+        assertEquals(1, roundController.getCurrentRound().get());
+
+        roundController.activateDoubleMove();
+        roundController.recordMrXMove();
+        roundController.recordMrXMove();
+        roundController.recordDetectiveMove("d1");
+
+        assertEquals(2, roundController.getCurrentRound().get());
+        assertEquals(TurnType.MRX, roundController.getCurrentPhase());
+    }
+
+    @Test
     void testRecordDetectiveMove_removesPendingDetective() {
         roundController.initDetectives(Set.of("d1", "d2"));
         roundController.recordMrXMove();
