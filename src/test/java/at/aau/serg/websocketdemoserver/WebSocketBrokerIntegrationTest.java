@@ -5,6 +5,7 @@ import at.aau.serg.websocketdemoserver.dtos.movement.MovementMessage;
 import at.aau.serg.websocketdemoserver.dtos.movement.MovementResponse;
 import at.aau.serg.websocketdemoserver.gamelogic.GameState;
 import at.aau.serg.websocketdemoserver.gamelogic.player.TicketType;
+import at.aau.serg.websocketdemoserver.gamelogic.turn.TurnType;
 import at.aau.serg.websocketdemoserver.lobby.Lobby;
 import at.aau.serg.websocketdemoserver.lobby.Role;
 import at.aau.serg.websocketdemoserver.lobby.User;
@@ -114,6 +115,9 @@ class WebSocketBrokerIntegrationTest {
         GameState gameState = gameController.getGame(gameId);
         gameState.setPlayerPosition(playerId, 2);
 
+        // set TurnType to DETECTIVES
+        gameState.getRoundController().setCurrentPhase(TurnType.DETECTIVES);
+        gameState.getRoundController().addPendingDetectives(playerId);
 
         MovementMessage movement = new MovementMessage();
         movement.setGameId(gameId);
