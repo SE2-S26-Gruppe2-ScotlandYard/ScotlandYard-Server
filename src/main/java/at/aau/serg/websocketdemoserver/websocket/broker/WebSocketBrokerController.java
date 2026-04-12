@@ -109,7 +109,7 @@ public class WebSocketBrokerController {
                     movement.getTargetPosition()
             );
 
-            if (messagingTemplate != null) {
+            if (messagingTemplate != null) {        //broadcast gameState
                 messagingTemplate.convertAndSend(
                         "/topic/game/" + movement.getGameId(),
                         gameState
@@ -125,9 +125,12 @@ public class WebSocketBrokerController {
                 );
             }
 
+            String extra = (isMrX && gameState.getRoundController().isDoubleMoveActive())
+                    ? " (1 move remaining due to double move)" : "";
+
             return new MovementResponse(
                     true,
-                    "Movement successful",
+                    "Movement successful" + extra,
                     gameState.getPlayerPosition(movement.getPlayerId()),
                     null
             );

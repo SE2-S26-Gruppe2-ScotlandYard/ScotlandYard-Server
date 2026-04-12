@@ -28,6 +28,12 @@ public class RoundController {
     @Setter
     private volatile TurnType currentPhase = TurnType.MRX;      // MRX or DETECTIVES
 
+    @Getter
+    private volatile int mrxMovesRemaining = 1;
+
+    @Getter
+    private volatile boolean doubleMoveActive = false;
+
     private final Set<String> pendingDetectives = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     private final Set<String> allDetectiveIds = Collections.newSetFromMap(new ConcurrentHashMap<>());
@@ -35,6 +41,19 @@ public class RoundController {
     public void initDetectives(Set<String> detectiveIds) {
         allDetectiveIds.clear();
         allDetectiveIds.addAll(detectiveIds);
+    }
+
+    public synchronized void activateDoubleMove() {
+        if (currentPhase != TurnType.MRX) {
+            throw new IllegalStateException(
+                    "Cannot activate double move: current phase is " + currentPhase);
+        }
+        if (doubleMoveActive) {
+            throw new IllegalStateException(
+                    "Double move ticket is already in use");
+        }
+        doubleMoveActive = true;
+        mrxMovesRemaining = 2;
     }
 
     // turn phases
@@ -66,10 +85,18 @@ public class RoundController {
             throw new IllegalStateException(
                     "Cannot record Mr. X move: current phase is " + currentPhase);
         }
-        //when Mr. X has moved, Detectives are allowed to move
-        pendingDetectives.clear();
-        pendingDetectives.addAll(allDetectiveIds);
-        currentPhase = TurnType.DETECTIVES;
+
+        mrxMovesRemaining--;
+
+        if (mrxMovesRemaining <= 0) {
+            mrxMovesRemaining = 1;      // reset for next round/turn
+            doubleMoveActive = false;
+            //when Mr. X has moved, Detectives are allowed to move
+            pendingDetectives.clear();
+            pendingDetectives.addAll(allDetectiveIds);
+            currentPhase = TurnType.DETECTIVES;
+        }
+        // double move still active, phase stays MRX
     }
 
     public synchronized void recordDetectiveMove(String detectiveId) {

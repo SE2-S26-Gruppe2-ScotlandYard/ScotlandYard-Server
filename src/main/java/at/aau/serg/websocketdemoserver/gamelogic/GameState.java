@@ -75,6 +75,24 @@ public class GameState {
         }
     }
 
+    public boolean activateDoubleMove() {
+        Player player = players.get(mrXId);
+
+        if (!player.hasTicket(TicketType.DOUBLE)) {
+            return false;
+        }
+        if (!roundController.isMrXTurn()) {
+            return false;
+        }
+        if (roundController.isDoubleMoveActive()) {
+            return false;
+        }
+
+        player.useTicket(TicketType.DOUBLE);
+        roundController.activateDoubleMove();
+        return true;
+    }
+
     public void setPlayerPosition(String playerId, int position) {
         if (position < 1 || position > 199) {
             throw new IllegalArgumentException("Position must be between 1 and 199");
