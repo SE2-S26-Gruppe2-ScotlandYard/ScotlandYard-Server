@@ -384,4 +384,82 @@ class WebSocketBrokerIntegrationTest {
         return session;
     }
 
+    @Test
+    void testHandleMove_detectiveDuringMrXPhase() throws Exception {
+        BlockingQueue<MovementResponse> messages = new LinkedBlockingDeque<>();
+        StompSession session = initStompSession(WEBSOCKET_TOPIC_MOVE, new JacksonJsonMessageConverter(), messages, MovementResponse.class);
+
+        // phase is MRX by default, detective tries to move
+        GameState gameState = gameController.getGame(gameId);
+        gameState.setPlayerPosition(playerId, 2);
+
+        MovementMessage movement = new MovementMessage();
+        movement.setGameId(gameId);
+        movement.setPlayerId(playerId);
+        movement.setTicket(TicketType.WALKING);
+        movement.setTargetPosition(20);
+        movement.setTimestamp(System.currentTimeMillis());
+
+        session.send("/app/move", movement);
+
+        MovementResponse response = messages.poll(2, TimeUnit.SECONDS);
+        assertThat(response).isNotNull();
+        assertThat(response.isSuccess()).isFalse();
+        assertThat(response.getMessage()).contains("Not the detectives' turn");
+    }
+
+    @Test
+    void testHandleMove_mrXDuringDetectivePhase() throws Exception {
+        BlockingQueue<MovementResponse> messages = new LinkedBlockingDeque<>();
+        StompSession session = initStompSession(WEBSOCKET_TOPIC_MOVE, new JacksonJsonMessageConverter(), messages, MovementResponse.class);
+
+        GameState gameState = gameController.getGame(gameId);
+        gameState.setPlayerPosition("user2", 2);
+
+        // switch to DETECTIVES phase
+        gameState.getRoundController().setCurrentPhase(TurnType.DETECTIVES);
+
+        MovementMessage movement = new MovementMessage();
+        movement.setGameId(gameId);
+        movement.setPlayerId("user2");
+        movement.setTicket(TicketType.WALKING);
+        movement.setTargetPosition(20);
+        movement.setTimestamp(System.currentTimeMillis());
+
+        session.send("/app/move", movement);
+
+        MovementResponse response = messages.poll(2, TimeUnit.SECONDS);
+        assertThat(response).isNotNull();
+        assertThat(response.isSuccess()).isFalse();
+        assertThat(response.getMessage()).contains("Not Mr. X's turn");
+    }
+
+
+    @Test
+    void testHandleMove_detectiveAlreadyMoved() throws Exception {
+        BlockingQueue<MovementResponse> messages = new LinkedBlockingDeque<>();
+        StompSession session = initStompSession(WEBSOCKET_TOPIC_MOVE, new JacksonJsonMessageConverter(), messages, MovementResponse.class);
+
+        GameState gameState = gameController.getGame(gameId);
+        gameState.setPlayerPosition(playerId, 2);
+
+        // switch to detective phase and add only user3 as pending (user1(playerID) already "moved")
+        gameState.getRoundController().setCurrentPhase(TurnType.DETECTIVES);
+        gameState.getRoundController().addPendingDetectives("user3"); // no playerId in pending
+
+        MovementMessage movement = new MovementMessage();
+        movement.setGameId(gameId);
+        movement.setPlayerId(playerId);                     // user1 tries to move
+        movement.setTicket(TicketType.WALKING);
+        movement.setTargetPosition(20);
+        movement.setTimestamp(System.currentTimeMillis());
+
+        session.send("/app/move", movement);
+
+        MovementResponse response = messages.poll(2, TimeUnit.SECONDS);
+        assertThat(response).isNotNull();
+        assertThat(response.isSuccess()).isFalse();
+        assertThat(response.getMessage()).contains("already moved");
+    }
+
 }
