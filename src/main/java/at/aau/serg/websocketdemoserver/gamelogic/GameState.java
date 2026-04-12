@@ -4,6 +4,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import at.aau.serg.websocketdemoserver.gamelogic.board.Board;
 import at.aau.serg.websocketdemoserver.gamelogic.board.Connection;
@@ -11,9 +13,11 @@ import at.aau.serg.websocketdemoserver.gamelogic.player.Detective;
 import at.aau.serg.websocketdemoserver.gamelogic.player.MrX;
 import at.aau.serg.websocketdemoserver.gamelogic.player.Player;
 import at.aau.serg.websocketdemoserver.gamelogic.player.TicketType;
+import at.aau.serg.websocketdemoserver.gamelogic.turn.TurnType;
 import at.aau.serg.websocketdemoserver.lobby.Lobby;
 import at.aau.serg.websocketdemoserver.lobby.Role;
 import at.aau.serg.websocketdemoserver.lobby.User;
+import at.aau.serg.websocketdemoserver.service.RoundController;
 import lombok.Getter;
 
 public class GameState {
@@ -21,6 +25,8 @@ public class GameState {
     private final String gameId;
     @Getter
     private final Board board;
+    @Getter
+    private final RoundController roundController = new RoundController();
     private final Map<String, Player> players = new HashMap<>();
     protected Map<String, Integer> playerPositions = new HashMap<>();
     private String mrXId;
@@ -46,6 +52,12 @@ public class GameState {
             } else {
                 player = new Detective(user); // new Detective
             }
+
+            // tell the RoundController which PlayerIDs belong to detectives
+            Set<String> detectiveIds = players.keySet().stream()
+                    .filter(id -> !id.equals(mrXId))
+                    .collect(Collectors.toSet());
+            roundController.initDetectives(detectiveIds);
 
             players.put(user.id(), player);
         }
@@ -97,6 +109,14 @@ public class GameState {
         return players.get(playerId);
     }
 
+    public int getCurrentRound() {
+        return roundController.getCurrentRound().get();
+    }
+
+    public TurnType getCurrentPhase() {
+        return roundController.getCurrentPhase();
+    }
+
     public boolean movePlayer(String playerId, TicketType ticket, int newPosition) {
         try {
             if (!players.containsKey(playerId)) {   // player has to exist to move
@@ -109,8 +129,17 @@ public class GameState {
             }
 
             if (isValidMove(playerId, ticket, currentPosition, newPosition)) {
+                // apply move
                 getPlayer(playerId).useTicket(ticket);
                 setPlayerPosition(playerId, newPosition);
+
+                //increment round/change phase
+                if (getPlayer(playerId).isMrX()) {
+                    roundController.recordMrXMove();
+                } else {
+                    roundController.recordDetectiveMove(playerId);
+                }
+
                 return true;
             }
         } catch (Exception e) {
