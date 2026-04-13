@@ -13,7 +13,7 @@ GitHub Actions führt bei jedem Push auf `main` automatisch aus:
 ## Branch-Workflow
 
 - Branches: `<branchTyp>/<beschreibung>`
-- Commit-Convention: `<[#IssueNummer falls vorhanden]> <typ> <beschreibung>`
+- Commit-Convention: `<typ> <beschreibung> <[#IssueNummer falls vorhanden]>`
 - Merges nur via Pull Request (kein Squash/Rebase)
 - `main` ist protected und muss jederzeit lauffähig sein
 
