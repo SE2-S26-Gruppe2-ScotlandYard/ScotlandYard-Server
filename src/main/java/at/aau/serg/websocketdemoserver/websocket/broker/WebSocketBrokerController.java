@@ -144,6 +144,19 @@ public class WebSocketBrokerController {
                 );
             }
 
+            switch (gameState.checkGameResult()) {
+                case DETECTIVES_WIN -> {
+                    broadcastGameState(movement.getGameId(), gameState);
+                    broadcastGameOver(movement.getGameId(), "DETECTIVES_WIN");
+                    return new MovementResponse(true, "Movement successful: Detectives win!", gameState.getPlayerPosition(movement.getPlayerId()), null);
+                }
+                case MRX_WINS -> {
+                    broadcastGameState(movement.getGameId(), gameState);
+                    broadcastGameOver(movement.getGameId(), "MRX_WINS");
+                    return new MovementResponse(true, "Movement successful: Mr. X wins!", gameState.getPlayerPosition(movement.getPlayerId()), null);
+                }
+            }
+
             String extra = (isMrX && gameState.getRoundController().isDoubleMoveActive())
                     ? " (1 move remaining due to double move ticket)" : "";
 
@@ -228,6 +241,12 @@ public class WebSocketBrokerController {
     private void broadcastGameState(String gameId, GameState gameState) {
         if (messagingTemplate != null) {        //broadcast gameState
             messagingTemplate.convertAndSend("/topic/game/" + gameId, gameState);
+        }
+    }
+
+    private void broadcastGameOver(String gameId, String result) {
+        if (messagingTemplate != null) {
+            messagingTemplate.convertAndSend("/topic/game/" + gameId + "/over", result);
         }
     }
 }

@@ -30,6 +30,7 @@ public class GameState {
     private final Map<String, Player> players = new HashMap<>();
     protected Map<String, Integer> playerPositions = new HashMap<>();
     private String mrXId;
+    public static final int MAX_ROUNDS = 22;
     private final Random RANDOM = new Random();     //NOSONAR not used in secure contexts
 
     public GameState (String gameId) {
@@ -177,5 +178,15 @@ public class GameState {
 
     public boolean isCaught() {
         return getDetectivePositions().containsValue(getMrXPosition());
+    }
+
+    public GameResult checkGameResult() {
+        if (isCaught()) {
+            return GameResult.DETECTIVES_WIN;
+        }
+        if (getCurrentRound() > MAX_ROUNDS) {
+            return GameResult.MRX_WINS;
+        }
+        return GameResult.ONGOING;
     }
 }
