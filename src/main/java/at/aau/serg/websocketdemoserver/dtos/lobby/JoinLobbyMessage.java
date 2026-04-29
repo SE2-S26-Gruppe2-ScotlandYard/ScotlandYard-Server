@@ -10,6 +10,5 @@ import lombok.NoArgsConstructor;
 public class JoinLobbyMessage {
     private String lobbyId;
     private String userId;
-    private String userName;
-    private String password;
+    private String nickName;
 }
