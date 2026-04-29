@@ -1,11 +1,7 @@
 package at.aau.serg.websocketdemoserver.websocket.broker;
 
 import at.aau.serg.websocketdemoserver.dtos.StompMessage;
-import at.aau.serg.websocketdemoserver.dtos.lobby.CreateLobbyMessage;
-import at.aau.serg.websocketdemoserver.dtos.lobby.DeleteLobbyMessage;
-import at.aau.serg.websocketdemoserver.dtos.lobby.JoinLobbyMessage;
-import at.aau.serg.websocketdemoserver.dtos.lobby.LeaveLobbyMessage;
-import at.aau.serg.websocketdemoserver.dtos.lobby.LobbyResponse;
+import at.aau.serg.websocketdemoserver.dtos.lobby.*;
 import at.aau.serg.websocketdemoserver.dtos.movement.MovementMessage;
 import at.aau.serg.websocketdemoserver.dtos.movement.MovementResponse;
 import at.aau.serg.websocketdemoserver.gamelogic.GameState;
@@ -22,6 +18,8 @@ import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 @Controller
 public class WebSocketBrokerController {
 
@@ -29,12 +27,25 @@ public class WebSocketBrokerController {
     private final LobbyService lobbyService = new LobbyService();
     private final SimpMessagingTemplate messagingTemplate;
 
+    // UserID Counter
+    private final AtomicInteger userIdSequence = new AtomicInteger(1);
+
     public WebSocketBrokerController() {
         this.messagingTemplate = null;
     }
 
     public WebSocketBrokerController(SimpMessagingTemplate messagingTemplate) {
         this.messagingTemplate = messagingTemplate;
+    }
+
+    @MessageMapping("/user/connect")
+    @SendTo("/topic/user-response")
+    public UserConnectResponse handleUserConnect(UserConnectMessage message) {
+        // Counts 1, 2, 3... and converts to String
+        String generatedUserId = String.valueOf(userIdSequence.getAndIncrement());
+        User user = new User(generatedUserId, message.getNickName());
+
+        return new UserConnectResponse(true, "User registered", user);
     }
 
     @MessageMapping("/hello")
@@ -165,8 +176,7 @@ public class WebSocketBrokerController {
         try {
             User host = new User(
                     message.getUserId(),
-                    message.getUserName(),
-                    message.getPassword()
+                    message.getNickName()
             );
 
             Lobby lobby = lobbyService.createLobby(message.getLobbyName(), host);
@@ -183,8 +193,7 @@ public class WebSocketBrokerController {
         try {
             User user = new User(
                     message.getUserId(),
-                    message.getUserName(),
-                    message.getPassword()
+                    message.getNickName()
             );
 
             Lobby lobby = lobbyService.joinLobby(message.getLobbyId(), user);
