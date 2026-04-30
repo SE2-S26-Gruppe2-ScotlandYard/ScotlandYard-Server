@@ -14,9 +14,9 @@ class LobbyTest {
 
     @BeforeEach
     void setUp() {
-        host = new User("host1", "Host", "pw");
-        user2 = new User("user2", "UserTwo", "pw");
-        user3 = new User("user3", "UserThree", "pw");
+        host = new User("host1", "Host");
+        user2 = new User("user2", "UserTwo");
+        user3 = new User("user3", "UserThree");
         lobby = new Lobby("TestLobby", host);
     }
 
@@ -45,13 +45,13 @@ class LobbyTest {
 
     @Test
     void testAddUser_LobbyFull() {
-        lobby.addUser(new User("u2", "p2", "pw"));
-        lobby.addUser(new User("u3", "p3", "pw"));
-        lobby.addUser(new User("u4", "p4", "pw"));
-        lobby.addUser(new User("u5", "p5", "pw"));
-        lobby.addUser(new User("u6", "p6", "pw"));
+        lobby.addUser(new User("u2", "p2"));
+        lobby.addUser(new User("u3", "p3"));
+        lobby.addUser(new User("u4", "p4"));
+        lobby.addUser(new User("u5", "p5"));
+        lobby.addUser(new User("u6", "p6"));
         assertTrue(lobby.isFull());
-        assertThrows(IllegalStateException.class, () -> lobby.addUser(new User("u7", "p7", "pw")));
+        assertThrows(IllegalStateException.class, () -> lobby.addUser(new User("u7", "p7")));
     }
 
     @Test
@@ -187,12 +187,12 @@ class LobbyTest {
         @Test
         void testAddUser_AfterGameStarted() {
             testStartGame_Success(); // Start the game
-            assertThrows(IllegalStateException.class, () -> lobby.addUser(new User("u4", "p4", "pw")));
+            assertThrows(IllegalStateException.class, () -> lobby.addUser(new User("u4", "p4")));
         }
 
         @Test
         void testGetSelectedRole_ReturnsSelected() {
-            assertTrue(lobby.selectRole(host.id(), Role.MRX));          // assign role (Mr. X)
+            assertTrue(lobby.selectRole(host.id(), Role.MRX));         // assign role (Mr. X)
             assertEquals(Role.MRX, lobby.getSelectedRole(host.id()));   //check assigned role (Mr. X)
             assertTrue(lobby.selectRole(user2.id(), Role.DETECTIVE));          // assign role (Mr. X)
             assertEquals(Role.DETECTIVE, lobby.getSelectedRole(user2.id()));   //check assigned role (Mr. X)

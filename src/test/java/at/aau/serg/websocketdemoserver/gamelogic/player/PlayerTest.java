@@ -9,7 +9,7 @@ class PlayerTest {
 
     @Test
     void testPlayerGettersAndSetters() {
-        Player player = new Detective(new User("d1", "Sherlock", "34"));
+        Player player = new Detective(new User("d1", "Sherlock"));
 
         assertEquals("Sherlock", player.getPlayerName());
         assertEquals("d1", player.getPlayerId());

@@ -26,10 +26,10 @@ class GameStateTest {
     void setUp() {
         gameState = new GameState("game123");
 
-        hostUser = new User("user1", "HostPlayer", "pw1");
-        detectiveUser1 = new User("user2", "Detective1", "pw2");
-        detectiveUser2 = new User("user3", "Detective2", "pw3");
-        mrXUser = new User("user4", "MrXPlayer", "pw4");
+        hostUser = new User("user1", "HostPlayer");
+        detectiveUser1 = new User("user2", "Detective1");
+        detectiveUser2 = new User("user3", "Detective2");
+        mrXUser = new User("user4", "MrXPlayer");
 
         mockLobby = mock(Lobby.class);
     }
@@ -98,7 +98,7 @@ class GameStateTest {
         setupBasicLobby();
         gameState.initializeFromLobby(mockLobby);
 
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {   // single invocation, lambda braces are fine here
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
             gameState.setPlayerPosition(hostUser.id(), 0);
         });
 
@@ -110,7 +110,7 @@ class GameStateTest {
         setupBasicLobby();
         gameState.initializeFromLobby(mockLobby);
 
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {   // single invocation, lambda braces are fine
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
             gameState.setPlayerPosition(hostUser.id(), 200);
         });
 
@@ -133,7 +133,7 @@ class GameStateTest {
         when(mockLobby.getSelectedRole(mrXUser.id())).thenReturn(Role.MRX);
         when(mockLobby.getSelectedRole(detectiveUser1.id())).thenReturn(Role.DETECTIVE);
         gameState.initializeFromLobby(mockLobby);
-        
+
         Integer mrXPosition = gameState.getMrXPosition();
 
         assertNotNull(mrXPosition);
@@ -144,7 +144,7 @@ class GameStateTest {
     void testGetMrXPositionNoMrX() {
         setupDetectiveLobby();
         gameState.initializeFromLobby(mockLobby);
-        
+
         Integer mrXPosition = gameState.getMrXPosition();
 
         assertNull(mrXPosition);
@@ -536,6 +536,15 @@ class GameStateTest {
         assertFalse(gameState.isCaught());
     }
 
+    @Test
+    void testGetCurrentRound() {
+        setupBasicLobby();
+        gameState.initializeFromLobby(mockLobby);
+
+        int currentRound = gameState.getCurrentRound();
+        assertTrue(currentRound >= 0);
+    }
+
     // supporting methods
     private void setupBasicLobby() {
         when(mockLobby.canStartGame()).thenReturn(true);
@@ -543,7 +552,7 @@ class GameStateTest {
         when(mockLobby.getSelectedRole(hostUser.id())).thenReturn(Role.DETECTIVE);
         when(mockLobby.getSelectedRole(detectiveUser1.id())).thenReturn(Role.DETECTIVE);
     }
-    
+
     private void setupBasicMrxLobby() {
         when(mockLobby.canStartGame()).thenReturn(true);
         when(mockLobby.getUsers()).thenReturn(List.of(hostUser, detectiveUser1, mrXUser));
@@ -551,7 +560,7 @@ class GameStateTest {
         when(mockLobby.getSelectedRole(detectiveUser1.id())).thenReturn(Role.DETECTIVE);
         when(mockLobby.getSelectedRole(mrXUser.id())).thenReturn(Role.MRX);
     }
-    
+
     private void setupOnlyMrxLobby() {
         when(mockLobby.canStartGame()).thenReturn(true);
         when(mockLobby.getUsers()).thenReturn(List.of(mrXUser));
