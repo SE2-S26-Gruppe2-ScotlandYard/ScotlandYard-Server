@@ -12,13 +12,12 @@ import at.aau.serg.websocketdemoserver.lobby.Lobby;
 import at.aau.serg.websocketdemoserver.lobby.User;
 import at.aau.serg.websocketdemoserver.service.GameController;
 import at.aau.serg.websocketdemoserver.service.LobbyService;
+import at.aau.serg.websocketdemoserver.service.UserService;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
-
-import java.util.concurrent.atomic.AtomicInteger;
 
 @Controller
 public class WebSocketBrokerController {
@@ -26,9 +25,7 @@ public class WebSocketBrokerController {
     private final GameController gameController = GameController.getInstance();
     private final LobbyService lobbyService = new LobbyService();
     private final SimpMessagingTemplate messagingTemplate;
-
-    // UserID Counter
-    private final AtomicInteger userIdSequence = new AtomicInteger(1);
+    private final UserService userService = new UserService();
 
     public WebSocketBrokerController() {
         this.messagingTemplate = null;
@@ -41,11 +38,15 @@ public class WebSocketBrokerController {
     @MessageMapping("/user/connect")
     @SendTo("/topic/user-response")
     public UserConnectResponse handleUserConnect(UserConnectMessage message) {
-        // Counts 1, 2, 3... and converts to String
-        String generatedUserId = String.valueOf(userIdSequence.getAndIncrement());
-        User user = new User(generatedUserId, message.getNickName());
-
-        return new UserConnectResponse(true, "User registered", user);
+        try {
+            User user = userService.registerUser(message.getNickName());
+            return new UserConnectResponse(true, "User registered", user);
+        } catch (IllegalArgumentException e) {
+            // Wenn der Name vergeben oder leer ist
+            return new UserConnectResponse(false, e.getMessage(), null);
+        } catch (Exception e) {
+            return new UserConnectResponse(false, "Internal Server Error", null);
+        }
     }
 
     @MessageMapping("/hello")
@@ -85,7 +86,7 @@ public class WebSocketBrokerController {
             }
 
             boolean isMrX = gameState.getPlayer(movement.getPlayerId()) != null
-                            && gameState.getPlayer(movement.getPlayerId()).isMrX();
+                    && gameState.getPlayer(movement.getPlayerId()).isMrX();
 
             TurnType phase = gameState.getCurrentPhase();
 
@@ -235,7 +236,7 @@ public class WebSocketBrokerController {
     }
 
     private void broadcastGameState(String gameId, GameState gameState) {
-        if (messagingTemplate != null) {        //broadcast gameState
+        if (messagingTemplate != null) {
             messagingTemplate.convertAndSend("/topic/game/" + gameId, gameState);
         }
     }
