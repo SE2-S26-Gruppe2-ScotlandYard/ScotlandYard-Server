@@ -10,9 +10,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Service
 public class UserService {
 
-    // Speichert aktive Nicknames (als Key) und den dazugehörigen User (als Value)
     private final Map<String, User> activeUsers = new ConcurrentHashMap<>();
-
     private final AtomicInteger userIdSequence = new AtomicInteger(1);
 
     public synchronized User registerUser(String nickName) {
@@ -30,12 +28,30 @@ public class UserService {
         User newUser = new User(generatedUserId, nickName.trim());
 
         activeUsers.put(lowerCaseName, newUser);
+
+        printAllUsers(); // TEST Liste nach jedem neuen User ausdrucken
+
         return newUser;
     }
 
     public synchronized void unregisterUser(String nickName) {
-        if (nickName != null) {
+        if (nickName == null || nickName.trim().isEmpty()) {
             activeUsers.remove(nickName.trim().toLowerCase());
+            printAllUsers(); // TEST Liste ausdrucken, wenn jemand geht
         }
     }
+
+    //TEST (löschen, falls nicht mehr benötigt)
+    private void printAllUsers() {
+        System.out.println("\n=== AKTUELL REGISTRIERTE USER (" + activeUsers.size() + ") ===");
+        if (activeUsers.isEmpty()) {
+            System.out.println("Keine User verbunden.");
+        } else {
+            for (User u : activeUsers.values()) {
+                System.out.println("- ID: " + u.id() + " | Nickname: " + u.nickName());
+            }
+        }
+        System.out.println("=====================================\n");
+    }
+    //TEST
 }
