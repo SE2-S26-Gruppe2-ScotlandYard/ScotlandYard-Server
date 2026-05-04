@@ -536,6 +536,74 @@ class GameStateTest {
         assertFalse(gameState.isCaught());
     }
 
+    // checkGameResult
+    @Test
+    void checkGameOver_ongoing() {
+        setupBasicMrxLobby();
+        gameState.initializeFromLobby(mockLobby);
+        gameState.setPlayerPosition(mrXUser.id(), 10);
+        gameState.setPlayerPosition(hostUser.id(), 20);
+        gameState.setPlayerPosition(detectiveUser1.id(), 30);
+
+        assertEquals(GameResult.ONGOING, gameState.checkGameResult());
+    }
+
+    @Test
+    void checkGameOver_mrxCaught() {
+        setupBasicMrxLobby();
+        gameState.initializeFromLobby(mockLobby);
+        gameState.setPlayerPosition(mrXUser.id(), 42);
+        gameState.setPlayerPosition(hostUser.id(), 42);     // same field!
+
+        assertEquals(GameResult.DETECTIVES_WIN, gameState.checkGameResult());
+    }
+
+    @Test
+    void checkGameOver_detectivesWinLastRound() {
+        // past MAX_ROUNDS, if MrX is caught, DETECTIVES_WIN
+        setupBasicMrxLobby();
+        gameState.initializeFromLobby(mockLobby);
+
+        while (gameState.getCurrentRound() <= GameState.MAX_ROUNDS) {
+            gameState.getRoundController().getCurrentRound().incrementAndGet();
+        }
+
+        gameState.setPlayerPosition(mrXUser.id(), 42);
+        gameState.setPlayerPosition(hostUser.id(), 42);
+
+        assertEquals(GameResult.DETECTIVES_WIN, gameState.checkGameResult());
+    }
+
+    @Test
+    void checkGameOver_pastMaxRoundsNotCaught() {
+        setupBasicMrxLobby();
+        gameState.initializeFromLobby(mockLobby);
+        while (gameState.getCurrentRound() <= GameState.MAX_ROUNDS) {
+            gameState.getRoundController().getCurrentRound().incrementAndGet();
+        }
+        gameState.setPlayerPosition(mrXUser.id(), 10);
+        gameState.setPlayerPosition(hostUser.id(), 20);
+        gameState.setPlayerPosition(detectiveUser1.id(), 30);
+
+        assertEquals(GameResult.MRX_WINS, gameState.checkGameResult());
+    }
+
+    @Test
+    void checkGameOver_atMaxRoundsExactly() {
+        setupBasicMrxLobby();
+        gameState.initializeFromLobby(mockLobby);
+        while (gameState.getCurrentRound() < GameState.MAX_ROUNDS) {
+            gameState.getRoundController().getCurrentRound().incrementAndGet();
+        }
+        assertEquals(GameState.MAX_ROUNDS, gameState.getCurrentRound());
+
+        gameState.setPlayerPosition(mrXUser.id(), 10);
+        gameState.setPlayerPosition(hostUser.id(), 20);
+        gameState.setPlayerPosition(detectiveUser1.id(), 30);
+
+        assertEquals(GameResult.ONGOING, gameState.checkGameResult());
+    }
+
     // supporting methods
     private void setupBasicLobby() {
         when(mockLobby.canStartGame()).thenReturn(true);
