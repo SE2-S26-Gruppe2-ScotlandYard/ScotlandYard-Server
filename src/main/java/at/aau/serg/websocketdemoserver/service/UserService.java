@@ -29,19 +29,19 @@ public class UserService {
 
         activeUsers.put(lowerCaseName, newUser);
 
-        printAllUsers(); // TEST Liste nach jedem neuen User ausdrucken
+        printAllUsers();
 
         return newUser;
     }
 
     public synchronized void unregisterUser(String nickName) {
-        if (nickName == null || nickName.trim().isEmpty()) {
+        if (nickName != null && !nickName.trim().isEmpty()) {
             activeUsers.remove(nickName.trim().toLowerCase());
-            printAllUsers(); // TEST Liste ausdrucken, wenn jemand geht
+            printAllUsers();
         }
     }
 
-    //TEST (löschen, falls nicht mehr benötigt)
+    //TEST
     private void printAllUsers() {
         System.out.println("\n=== AKTUELL REGISTRIERTE USER (" + activeUsers.size() + ") ===");
         if (activeUsers.isEmpty()) {
