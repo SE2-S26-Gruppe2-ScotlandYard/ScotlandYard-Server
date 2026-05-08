@@ -7,10 +7,9 @@ class UserTest {
 
     @Test
     void testUserRecord() {
-        User user = new User("user123", "Alice", "password123");
+        User user = new User("user123", "Alice");
 
         assertEquals("user123", user.id());
-        assertEquals("Alice", user.name());
-        assertEquals("password123", user.password());
+        assertEquals("Alice", user.nickName());
     }
 }

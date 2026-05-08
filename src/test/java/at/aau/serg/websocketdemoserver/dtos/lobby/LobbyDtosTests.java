@@ -14,18 +14,16 @@ class LobbyDtosTests {
 
         assertThat(message.getLobbyName()).isNull();
         assertThat(message.getUserId()).isNull();
-        assertThat(message.getUserName()).isNull();
-        assertThat(message.getPassword()).isNull();
+        assertThat(message.getNickName()).isNull();
     }
 
     @Test
     void testCreateLobbyMessageAllArgsConstructor() {
-        CreateLobbyMessage message = new CreateLobbyMessage("TestLobby", "1", "Stefan", "pass");
+        CreateLobbyMessage message = new CreateLobbyMessage("TestLobby", "1", "Stefan");
 
         assertThat(message.getLobbyName()).isEqualTo("TestLobby");
         assertThat(message.getUserId()).isEqualTo("1");
-        assertThat(message.getUserName()).isEqualTo("Stefan");
-        assertThat(message.getPassword()).isEqualTo("pass");
+        assertThat(message.getNickName()).isEqualTo("Stefan");
     }
 
     @Test
@@ -34,20 +32,18 @@ class LobbyDtosTests {
 
         message.setLobbyName("TestLobby");
         message.setUserId("1");
-        message.setUserName("Stefan");
-        message.setPassword("pass");
+        message.setNickName("Stefan");
 
         assertThat(message.getLobbyName()).isEqualTo("TestLobby");
         assertThat(message.getUserId()).isEqualTo("1");
-        assertThat(message.getUserName()).isEqualTo("Stefan");
-        assertThat(message.getPassword()).isEqualTo("pass");
+        assertThat(message.getNickName()).isEqualTo("Stefan");
     }
 
     @Test
     void testCreateLobbyMessageEqualsAndHashCode() {
-        CreateLobbyMessage m1 = new CreateLobbyMessage("TestLobby", "1", "Stefan", "pass");
-        CreateLobbyMessage m2 = new CreateLobbyMessage("TestLobby", "1", "Stefan", "pass");
-        CreateLobbyMessage m3 = new CreateLobbyMessage("OtherLobby", "2", "Anna", "secret");
+        CreateLobbyMessage m1 = new CreateLobbyMessage("TestLobby", "1", "Stefan");
+        CreateLobbyMessage m2 = new CreateLobbyMessage("TestLobby", "1", "Stefan");
+        CreateLobbyMessage m3 = new CreateLobbyMessage("OtherLobby", "2", "Anna");
 
         assertThat(m1).isEqualTo(m2);
         assertThat(m1.hashCode()).isEqualTo(m2.hashCode());
@@ -58,8 +54,8 @@ class LobbyDtosTests {
 
     @Test
     void testCreateLobbyMessageCanEqual() {
-        CreateLobbyMessage m1 = new CreateLobbyMessage("TestLobby", "1", "Stefan", "pass");
-        CreateLobbyMessage m2 = new CreateLobbyMessage("TestLobby", "1", "Stefan", "pass");
+        CreateLobbyMessage m1 = new CreateLobbyMessage("TestLobby", "1", "Stefan");
+        CreateLobbyMessage m2 = new CreateLobbyMessage("TestLobby", "1", "Stefan");
 
         assertThat(m1.canEqual(m2)).isTrue();
         assertThat(m1.canEqual(new Object())).isFalse();
@@ -67,15 +63,15 @@ class LobbyDtosTests {
 
     @Test
     void testCreateLobbyMessageEqualsSameObject() {
-        CreateLobbyMessage message = new CreateLobbyMessage("TestLobby", "1", "Stefan", "pass");
+        CreateLobbyMessage message = new CreateLobbyMessage("TestLobby", "1", "Stefan");
         assertThat(message.equals(message)).isTrue();
     }
 
     @Test
     void testCreateLobbyMessageWithNullFields() {
-        CreateLobbyMessage m1 = new CreateLobbyMessage(null, null, null, null);
-        CreateLobbyMessage m2 = new CreateLobbyMessage(null, null, null, null);
-        CreateLobbyMessage m3 = new CreateLobbyMessage("TestLobby", "1", "Stefan", "pass");
+        CreateLobbyMessage m1 = new CreateLobbyMessage(null, null, null);
+        CreateLobbyMessage m2 = new CreateLobbyMessage(null, null, null);
+        CreateLobbyMessage m3 = new CreateLobbyMessage("TestLobby", "1", "Stefan");
 
         assertThat(m1).isEqualTo(m2);
         assertThat(m1).isNotEqualTo(m3);
@@ -88,18 +84,16 @@ class LobbyDtosTests {
 
         assertThat(message.getLobbyId()).isNull();
         assertThat(message.getUserId()).isNull();
-        assertThat(message.getUserName()).isNull();
-        assertThat(message.getPassword()).isNull();
+        assertThat(message.getNickName()).isNull();
     }
 
     @Test
     void testJoinLobbyMessageAllArgsConstructor() {
-        JoinLobbyMessage message = new JoinLobbyMessage("lobby-123", "2", "Player", "secret");
+        JoinLobbyMessage message = new JoinLobbyMessage("lobby-123", "2", "Player");
 
         assertThat(message.getLobbyId()).isEqualTo("lobby-123");
         assertThat(message.getUserId()).isEqualTo("2");
-        assertThat(message.getUserName()).isEqualTo("Player");
-        assertThat(message.getPassword()).isEqualTo("secret");
+        assertThat(message.getNickName()).isEqualTo("Player");
     }
 
     @Test
@@ -108,20 +102,18 @@ class LobbyDtosTests {
 
         message.setLobbyId("lobby-123");
         message.setUserId("2");
-        message.setUserName("Player");
-        message.setPassword("secret");
+        message.setNickName("Player");
 
         assertThat(message.getLobbyId()).isEqualTo("lobby-123");
         assertThat(message.getUserId()).isEqualTo("2");
-        assertThat(message.getUserName()).isEqualTo("Player");
-        assertThat(message.getPassword()).isEqualTo("secret");
+        assertThat(message.getNickName()).isEqualTo("Player");
     }
 
     @Test
     void testJoinLobbyMessageEqualsAndHashCode() {
-        JoinLobbyMessage m1 = new JoinLobbyMessage("lobby-123", "2", "Player", "secret");
-        JoinLobbyMessage m2 = new JoinLobbyMessage("lobby-123", "2", "Player", "secret");
-        JoinLobbyMessage m3 = new JoinLobbyMessage("other-lobby", "3", "Other", "pw");
+        JoinLobbyMessage m1 = new JoinLobbyMessage("lobby-123", "2", "Player");
+        JoinLobbyMessage m2 = new JoinLobbyMessage("lobby-123", "2", "Player");
+        JoinLobbyMessage m3 = new JoinLobbyMessage("other-lobby", "3", "Other");
 
         assertThat(m1).isEqualTo(m2);
         assertThat(m1.hashCode()).isEqualTo(m2.hashCode());
@@ -132,8 +124,8 @@ class LobbyDtosTests {
 
     @Test
     void testJoinLobbyMessageCanEqual() {
-        JoinLobbyMessage m1 = new JoinLobbyMessage("lobby-123", "2", "Player", "secret");
-        JoinLobbyMessage m2 = new JoinLobbyMessage("lobby-123", "2", "Player", "secret");
+        JoinLobbyMessage m1 = new JoinLobbyMessage("lobby-123", "2", "Player");
+        JoinLobbyMessage m2 = new JoinLobbyMessage("lobby-123", "2", "Player");
 
         assertThat(m1.canEqual(m2)).isTrue();
         assertThat(m1.canEqual(new Object())).isFalse();
@@ -141,15 +133,15 @@ class LobbyDtosTests {
 
     @Test
     void testJoinLobbyMessageEqualsSameObject() {
-        JoinLobbyMessage message = new JoinLobbyMessage("lobby-123", "2", "Player", "secret");
+        JoinLobbyMessage message = new JoinLobbyMessage("lobby-123", "2", "Player");
         assertThat(message.equals(message)).isTrue();
     }
 
     @Test
     void testJoinLobbyMessageWithNullFields() {
-        JoinLobbyMessage m1 = new JoinLobbyMessage(null, null, null, null);
-        JoinLobbyMessage m2 = new JoinLobbyMessage(null, null, null, null);
-        JoinLobbyMessage m3 = new JoinLobbyMessage("lobby-123", "2", "Player", "secret");
+        JoinLobbyMessage m1 = new JoinLobbyMessage(null, null, null);
+        JoinLobbyMessage m2 = new JoinLobbyMessage(null, null, null);
+        JoinLobbyMessage m3 = new JoinLobbyMessage("lobby-123", "2", "Player");
 
         assertThat(m1).isEqualTo(m2);
         assertThat(m1).isNotEqualTo(m3);
@@ -300,7 +292,7 @@ class LobbyDtosTests {
 
     @Test
     void testLobbyResponseAllArgsConstructor() {
-        User host = new User("1", "Host", "pass");
+        User host = new User("1", "Host");
         Lobby lobby = new Lobby("TestLobby", host);
 
         LobbyResponse response = new LobbyResponse(true, "Lobby created successfully", lobby.getId(), lobby);
@@ -328,7 +320,7 @@ class LobbyDtosTests {
 
     @Test
     void testLobbyResponseEqualsAndHashCode() {
-        User host = new User("1", "Host", "pass");
+        User host = new User("1", "Host");
         Lobby lobby = new Lobby("TestLobby", host);
 
         LobbyResponse r1 = new LobbyResponse(true, "ok", "lobby-1", lobby);
@@ -366,5 +358,56 @@ class LobbyDtosTests {
         assertThat(r1).isEqualTo(r2);
         assertThat(r1).isNotEqualTo(r3);
         assertThat(r1.hashCode()).isEqualTo(r2.hashCode());
+    }
+
+    @Test
+    void testUserConnectMessageNoArgsConstructor() {
+        UserConnectMessage message = new UserConnectMessage();
+        assertThat(message.getNickName()).isNull();
+    }
+
+    @Test
+    void testUserConnectMessageAllArgsConstructor() {
+        UserConnectMessage message = new UserConnectMessage("Stefan");
+        assertThat(message.getNickName()).isEqualTo("Stefan");
+    }
+
+    @Test
+    void testUserConnectMessageSettersAndGetters() {
+        UserConnectMessage message = new UserConnectMessage();
+        message.setNickName("Stefan");
+        assertThat(message.getNickName()).isEqualTo("Stefan");
+    }
+
+    @Test
+    void testUserConnectResponseNoArgsConstructor() {
+        UserConnectResponse response = new UserConnectResponse();
+        assertThat(response.isSuccess()).isFalse();
+        assertThat(response.getMessage()).isNull();
+        assertThat(response.getUser()).isNull();
+    }
+
+    @Test
+    void testUserConnectResponseAllArgsConstructor() {
+        User user = new User("1", "Stefan");
+        UserConnectResponse response = new UserConnectResponse(true, "Success", user);
+
+        assertThat(response.isSuccess()).isTrue();
+        assertThat(response.getMessage()).isEqualTo("Success");
+        assertThat(response.getUser()).isEqualTo(user);
+    }
+
+    @Test
+    void testUserConnectResponseSettersAndGetters() {
+        UserConnectResponse response = new UserConnectResponse();
+        User user = new User("1", "Stefan");
+
+        response.setSuccess(true);
+        response.setMessage("Success");
+        response.setUser(user);
+
+        assertThat(response.isSuccess()).isTrue();
+        assertThat(response.getMessage()).isEqualTo("Success");
+        assertThat(response.getUser()).isEqualTo(user);
     }
 }

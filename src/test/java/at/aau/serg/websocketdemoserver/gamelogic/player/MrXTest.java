@@ -13,7 +13,7 @@ class MrXTest {
 
     @BeforeEach
     void setUp() {
-        mrX = new MrX(new User("x1", "Moriarty", "23"));
+        mrX = new MrX(new User("x1", "Moriarty"));
     }
 
     @Test

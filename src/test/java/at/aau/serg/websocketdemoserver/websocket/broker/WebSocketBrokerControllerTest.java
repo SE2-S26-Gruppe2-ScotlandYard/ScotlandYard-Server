@@ -6,6 +6,8 @@ import at.aau.serg.websocketdemoserver.dtos.lobby.DeleteLobbyMessage;
 import at.aau.serg.websocketdemoserver.dtos.lobby.JoinLobbyMessage;
 import at.aau.serg.websocketdemoserver.dtos.lobby.LeaveLobbyMessage;
 import at.aau.serg.websocketdemoserver.dtos.lobby.LobbyResponse;
+import at.aau.serg.websocketdemoserver.dtos.lobby.UserConnectMessage;
+import at.aau.serg.websocketdemoserver.dtos.lobby.UserConnectResponse;
 import at.aau.serg.websocketdemoserver.dtos.movement.MovementMessage;
 import at.aau.serg.websocketdemoserver.dtos.movement.MovementResponse;
 import at.aau.serg.websocketdemoserver.gamelogic.player.TicketType;
@@ -14,6 +16,20 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class WebSocketBrokerControllerTest {
+
+    @Test
+    void testHandleUserConnect() {
+        WebSocketBrokerController controller = new WebSocketBrokerController();
+        UserConnectMessage message = new UserConnectMessage();
+        message.setNickName("Stefan");
+
+        UserConnectResponse response = controller.handleUserConnect(message);
+
+        assertTrue(response.isSuccess());
+        assertEquals("User registered", response.getMessage());
+        assertNotNull(response.getUser().id());
+        assertEquals("Stefan", response.getUser().nickName());
+    }
 
     @Test
     void testHandleHello() {
@@ -93,8 +109,7 @@ public class WebSocketBrokerControllerTest {
         CreateLobbyMessage message = new CreateLobbyMessage();
         message.setLobbyName("TestLobby");
         message.setUserId("1");
-        message.setUserName("Host");
-        message.setPassword("pass");
+        message.setNickName("Host");
 
         LobbyResponse response = controller.handleCreateLobby(message);
 
@@ -113,16 +128,14 @@ public class WebSocketBrokerControllerTest {
         CreateLobbyMessage createMessage = new CreateLobbyMessage();
         createMessage.setLobbyName("TestLobby");
         createMessage.setUserId("1");
-        createMessage.setUserName("Host");
-        createMessage.setPassword("pass");
+        createMessage.setNickName("Host");
 
         LobbyResponse createResponse = controller.handleCreateLobby(createMessage);
 
         JoinLobbyMessage joinMessage = new JoinLobbyMessage();
         joinMessage.setLobbyId(createResponse.getLobbyId());
         joinMessage.setUserId("2");
-        joinMessage.setUserName("Player");
-        joinMessage.setPassword("pass");
+        joinMessage.setNickName("Player");
 
         LobbyResponse joinResponse = controller.handleJoinLobby(joinMessage);
 
@@ -139,8 +152,7 @@ public class WebSocketBrokerControllerTest {
         JoinLobbyMessage joinMessage = new JoinLobbyMessage();
         joinMessage.setLobbyId("missing-lobby");
         joinMessage.setUserId("2");
-        joinMessage.setUserName("Player");
-        joinMessage.setPassword("pass");
+        joinMessage.setNickName("Player");
 
         LobbyResponse response = controller.handleJoinLobby(joinMessage);
 
@@ -156,16 +168,14 @@ public class WebSocketBrokerControllerTest {
         CreateLobbyMessage createMessage = new CreateLobbyMessage();
         createMessage.setLobbyName("TestLobby");
         createMessage.setUserId("1");
-        createMessage.setUserName("Host");
-        createMessage.setPassword("pass");
+        createMessage.setNickName("Host");
 
         LobbyResponse createResponse = controller.handleCreateLobby(createMessage);
 
         JoinLobbyMessage joinMessage = new JoinLobbyMessage();
         joinMessage.setLobbyId(createResponse.getLobbyId());
         joinMessage.setUserId("2");
-        joinMessage.setUserName("Player");
-        joinMessage.setPassword("pass");
+        joinMessage.setNickName("Player");
 
         controller.handleJoinLobby(joinMessage);
 
@@ -188,8 +198,7 @@ public class WebSocketBrokerControllerTest {
         CreateLobbyMessage createMessage = new CreateLobbyMessage();
         createMessage.setLobbyName("TestLobby");
         createMessage.setUserId("1");
-        createMessage.setUserName("Host");
-        createMessage.setPassword("pass");
+        createMessage.setNickName("Host");
 
         LobbyResponse createResponse = controller.handleCreateLobby(createMessage);
 
@@ -212,8 +221,7 @@ public class WebSocketBrokerControllerTest {
         CreateLobbyMessage createMessage = new CreateLobbyMessage();
         createMessage.setLobbyName("TestLobby");
         createMessage.setUserId("1");
-        createMessage.setUserName("Host");
-        createMessage.setPassword("pass");
+        createMessage.setNickName("Host");
 
         LobbyResponse createResponse = controller.handleCreateLobby(createMessage);
 
@@ -236,8 +244,7 @@ public class WebSocketBrokerControllerTest {
         CreateLobbyMessage createMessage = new CreateLobbyMessage();
         createMessage.setLobbyName("TestLobby");
         createMessage.setUserId("1");
-        createMessage.setUserName("Host");
-        createMessage.setPassword("pass");
+        createMessage.setNickName("Host");
 
         LobbyResponse createResponse = controller.handleCreateLobby(createMessage);
 
@@ -250,5 +257,41 @@ public class WebSocketBrokerControllerTest {
         assertFalse(deleteResponse.isSuccess());
         assertEquals("Only host can delete lobby", deleteResponse.getMessage());
         assertNull(deleteResponse.getLobby());
+    }
+
+    @Test
+    void testHandleCreateLobbyException() {
+        WebSocketBrokerController controller = new WebSocketBrokerController();
+        LobbyResponse response = controller.handleCreateLobby(null);
+
+        assertFalse(response.isSuccess());
+        assertNull(response.getLobby());
+    }
+
+    @Test
+    void testHandleJoinLobbyException() {
+        WebSocketBrokerController controller = new WebSocketBrokerController();
+        LobbyResponse response = controller.handleJoinLobby(null);
+
+        assertFalse(response.isSuccess());
+        assertNull(response.getLobby());
+    }
+
+    @Test
+    void testHandleLeaveLobbyException() {
+        WebSocketBrokerController controller = new WebSocketBrokerController();
+        LobbyResponse response = controller.handleLeaveLobby(null);
+
+        assertFalse(response.isSuccess());
+        assertNull(response.getLobby());
+    }
+
+    @Test
+    void testHandleDeleteLobbyException() {
+        WebSocketBrokerController controller = new WebSocketBrokerController();
+        LobbyResponse response = controller.handleDeleteLobby(null);
+
+        assertFalse(response.isSuccess());
+        assertNull(response.getLobby());
     }
 }
