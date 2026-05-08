@@ -543,6 +543,8 @@ class GameStateTest {
 
         int currentRound = gameState.getCurrentRound();
         assertTrue(currentRound >= 0);
+    }
+
     // checkGameResult
     @Test
     void checkGameOver_ongoing() {
@@ -560,7 +562,7 @@ class GameStateTest {
         setupBasicMrxLobby();
         gameState.initializeFromLobby(mockLobby);
         gameState.setPlayerPosition(mrXUser.id(), 42);
-        gameState.setPlayerPosition(hostUser.id(), 42);     // same field!
+        gameState.setPlayerPosition(hostUser.id(), 42);      // same field!
 
         assertEquals(GameResult.DETECTIVES_WIN, gameState.checkGameResult());
     }
