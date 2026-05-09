@@ -175,22 +175,13 @@ class GameStateTest {
     }
 
     @Test
-    void testStartPositionsAreValidStationNumbers() {
+    void testStartPositionsAreWithinFullBoardRange() {
         setupDetectiveLobby();
         gameState.initializeFromLobby(mockLobby);
 
-        int[] validStartPositions = new int[] {13, 26, 29, 34, 50, 53, 91, 94, 103, 112, 117, 132, 138, 141, 155, 174, 197, 198};
-
         for (User user : List.of(hostUser, detectiveUser1, detectiveUser2)) {
             int position = gameState.getPlayerPosition(user.id());
-            boolean isValidStartPosition = false;
-            for (int validPos : validStartPositions) {
-                if (position == validPos) {
-                    isValidStartPosition = true;
-                    break;
-                }
-            }
-            assertTrue(isValidStartPosition);
+            assertTrue(position >= 1 && position <= 199);
         }
     }
 
@@ -639,5 +630,19 @@ class GameStateTest {
         when(mockLobby.canStartGame()).thenReturn(true);
         when(mockLobby.getUsers()).thenReturn(List.of(hostUser, detectiveUser1, detectiveUser2));
         when(mockLobby.getSelectedRole(anyString())).thenReturn(Role.DETECTIVE);
+    }
+
+    @Test
+    void testStartPositionsAreUnique() {
+        setupDetectiveLobby();
+        gameState.initializeFromLobby(mockLobby);
+
+        int pos1 = gameState.getPlayerPosition(hostUser.id());
+        int pos2 = gameState.getPlayerPosition(detectiveUser1.id());
+        int pos3 = gameState.getPlayerPosition(detectiveUser2.id());
+
+        assertNotEquals(pos1, pos2);
+        assertNotEquals(pos1, pos3);
+        assertNotEquals(pos2, pos3);
     }
 }

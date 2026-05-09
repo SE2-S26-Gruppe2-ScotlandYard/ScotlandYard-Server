@@ -1,10 +1,6 @@
 package at.aau.serg.websocketdemoserver.gamelogic;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Random;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import at.aau.serg.websocketdemoserver.gamelogic.board.Board;
@@ -68,11 +64,17 @@ public class GameState {
     }
 
     private void initializeStartPositions() {
-        int[] startPositions = new int[] {13, 26, 29, 34, 50, 53, 91, 94, 103, 112, 117, 132, 138, 141, 155, 174, 197, 198};
+        List<Integer> availablePositions = new ArrayList<>();
+        for (int i = 1; i <= 199; i++) {
+            availablePositions.add(i);
+        }
 
+        Collections.shuffle(availablePositions, RANDOM);
+
+        int index = 0;
         for (String playerId : players.keySet()) {
-            int rnd = RANDOM.nextInt(startPositions.length);
-            setPlayerPosition(playerId, startPositions[rnd]);
+            setPlayerPosition(playerId, availablePositions.get(index));
+            index++;
         }
     }
 
