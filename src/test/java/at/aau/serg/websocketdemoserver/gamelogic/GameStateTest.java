@@ -97,10 +97,12 @@ class GameStateTest {
     void testSetPlayerPositionInvalidBelowRange() {
         setupBasicLobby();
         gameState.initializeFromLobby(mockLobby);
+        String playerId = hostUser.id();
 
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
-            gameState.setPlayerPosition(hostUser.id(), 0);
-        });
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> gameState.setPlayerPosition(playerId, 0)
+        );
 
         assertEquals("Position must be between 1 and 199", exception.getMessage());
     }
@@ -109,10 +111,12 @@ class GameStateTest {
     void testSetPlayerPositionInvalidAboveRange() {
         setupBasicLobby();
         gameState.initializeFromLobby(mockLobby);
+        String playerId = hostUser.id();
 
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
-            gameState.setPlayerPosition(hostUser.id(), 200);
-        });
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> gameState.setPlayerPosition(playerId, 200)
+        );
 
         assertEquals("Position must be between 1 and 199", exception.getMessage());
     }
