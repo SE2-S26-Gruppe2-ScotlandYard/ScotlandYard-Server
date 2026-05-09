@@ -1,5 +1,7 @@
 package at.aau.serg.websocketdemoserver.websocket.broker;
 
+import at.aau.serg.websocketdemoserver.dtos.StartPositionRequest;
+import at.aau.serg.websocketdemoserver.dtos.StartPositionResponse;
 import at.aau.serg.websocketdemoserver.dtos.StompMessage;
 import at.aau.serg.websocketdemoserver.dtos.lobby.*;
 import at.aau.serg.websocketdemoserver.dtos.movement.MovementMessage;
@@ -21,6 +23,8 @@ import org.springframework.stereotype.Controller;
 
 @Controller
 public class WebSocketBrokerController {
+
+    private static final String TOPIC_GAME = "/topic/game/";
 
     private final GameController gameController = GameController.getInstance();
     private final LobbyService lobbyService = new LobbyService();
@@ -248,15 +252,47 @@ public class WebSocketBrokerController {
         }
     }
 
+    @MessageMapping("/game/start-position/request")
+    public void handleStartPositionRequest(@Payload StartPositionRequest request) {
+        String destination = TOPIC_GAME + request.getGameId()
+                + "/player/" + request.getPlayerId() + "/start-position";
+
+        GameState gameState = gameController.getGame(request.getGameId());
+
+        if (gameState == null) {
+            sendStartPositionResponse(destination,
+                    new StartPositionResponse("ERROR", request.getGameId(), request.getPlayerId(),
+                            null, "Game not found"));
+            return;
+        }
+
+        try {
+            int position = gameState.assignStartPosition(request.getPlayerId());
+            sendStartPositionResponse(destination,
+                    new StartPositionResponse("START_POSITION_ASSIGNED", request.getGameId(),
+                            request.getPlayerId(), position, "Start position assigned"));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            sendStartPositionResponse(destination,
+                    new StartPositionResponse("ERROR", request.getGameId(), request.getPlayerId(),
+                            null, e.getMessage()));
+        }
+    }
+
+    private void sendStartPositionResponse(String destination, StartPositionResponse response) {
+        if (messagingTemplate != null) {
+            messagingTemplate.convertAndSend(destination, response);
+        }
+    }
+
     private void broadcastGameState(String gameId, GameState gameState) {
         if (messagingTemplate != null) {
-            messagingTemplate.convertAndSend("/topic/game/" + gameId, gameState);
+            messagingTemplate.convertAndSend(TOPIC_GAME + gameId, gameState);
         }
     }
 
     private void broadcastGameOver(String gameId, String result) {
         if (messagingTemplate != null) {
-            messagingTemplate.convertAndSend("/topic/game/" + gameId + "/over", result);
+            messagingTemplate.convertAndSend(TOPIC_GAME + gameId + "/over", result);
         }
     }
 }

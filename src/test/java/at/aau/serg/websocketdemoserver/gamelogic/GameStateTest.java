@@ -74,13 +74,16 @@ class GameStateTest {
         when(mockLobby.getSelectedRole(mrXUser.id())).thenReturn(Role.MRX);
         gameState.initializeFromLobby(mockLobby);
 
-        assertNotNull(gameState.getPlayerPosition(hostUser.id()));
-        assertNotNull(gameState.getPlayerPosition(detectiveUser1.id()));
-        assertNotNull(gameState.getPlayerPosition(detectiveUser2.id()));
-        assertNotNull(gameState.getPlayerPosition(mrXUser.id()));
+        // positions are assigned on demand, not automatically
+        int pos1 = gameState.assignStartPosition(hostUser.id());
+        int pos2 = gameState.assignStartPosition(detectiveUser1.id());
+        int pos3 = gameState.assignStartPosition(detectiveUser2.id());
+        int pos4 = gameState.assignStartPosition(mrXUser.id());
 
-        assertTrue(gameState.getPlayerPosition(hostUser.id()) >= 1 &&
-                gameState.getPlayerPosition(hostUser.id()) <= 199);
+        assertTrue(pos1 >= 1 && pos1 <= 199);
+        assertTrue(pos2 >= 1 && pos2 <= 199);
+        assertTrue(pos3 >= 1 && pos3 <= 199);
+        assertTrue(pos4 >= 1 && pos4 <= 199);
     }
 
     @Test
@@ -138,6 +141,9 @@ class GameStateTest {
         when(mockLobby.getSelectedRole(detectiveUser1.id())).thenReturn(Role.DETECTIVE);
         gameState.initializeFromLobby(mockLobby);
 
+        gameState.assignStartPosition(mrXUser.id());
+        gameState.assignStartPosition(detectiveUser1.id());
+
         Integer mrXPosition = gameState.getMrXPosition();
 
         assertNotNull(mrXPosition);
@@ -184,7 +190,7 @@ class GameStateTest {
         gameState.initializeFromLobby(mockLobby);
 
         for (User user : List.of(hostUser, detectiveUser1, detectiveUser2)) {
-            int position = gameState.getPlayerPosition(user.id());
+            int position = gameState.assignStartPosition(user.id());
             assertTrue(position >= 1 && position <= 199);
         }
     }
@@ -195,7 +201,8 @@ class GameStateTest {
         gameState.initializeFromLobby(mockLobby);
 
         for (User user : List.of(hostUser, detectiveUser1)) {
-            assertNotNull(gameState.getPlayerPosition(user.id()));
+            int pos = gameState.assignStartPosition(user.id());
+            assertTrue(pos >= 1 && pos <= 199);
         }
     }
 
@@ -204,14 +211,15 @@ class GameStateTest {
         setupDetectiveLobby();
         gameState.initializeFromLobby(mockLobby);
 
-        Integer pos1 = gameState.getPlayerPosition(hostUser.id());
-        Integer pos2 = gameState.getPlayerPosition(detectiveUser1.id());
+        Integer pos1 = gameState.assignStartPosition(hostUser.id());
+        Integer pos2 = gameState.assignStartPosition(detectiveUser1.id());
 
         assertNotNull(pos1);
         assertNotNull(pos2);
 
         assertTrue(pos1 >= 1 && pos1 <= 199);
         assertTrue(pos2 >= 1 && pos2 <= 199);
+        assertNotEquals(pos1, pos2);
     }
 
     // getDetectivePositions
@@ -312,6 +320,7 @@ class GameStateTest {
     void testMovePlayerInvalidMoveNoTicket() {
         setupBasicLobby();
         gameState.initializeFromLobby(mockLobby);
+        gameState.assignStartPosition(hostUser.id());
 
         int currentPos = gameState.getPlayerPosition(hostUser.id());
 
@@ -433,6 +442,7 @@ class GameStateTest {
     void testMovePlayerSameStation() {
         setupBasicLobby();
         gameState.initializeFromLobby(mockLobby);
+        gameState.assignStartPosition(hostUser.id());
 
         int currentPos = gameState.getPlayerPosition(hostUser.id());
 
@@ -641,12 +651,51 @@ class GameStateTest {
         setupDetectiveLobby();
         gameState.initializeFromLobby(mockLobby);
 
-        int pos1 = gameState.getPlayerPosition(hostUser.id());
-        int pos2 = gameState.getPlayerPosition(detectiveUser1.id());
-        int pos3 = gameState.getPlayerPosition(detectiveUser2.id());
+        int pos1 = gameState.assignStartPosition(hostUser.id());
+        int pos2 = gameState.assignStartPosition(detectiveUser1.id());
+        int pos3 = gameState.assignStartPosition(detectiveUser2.id());
 
         assertNotEquals(pos1, pos2);
         assertNotEquals(pos1, pos3);
         assertNotEquals(pos2, pos3);
+    }
+
+    // assignStartPosition tests
+    @Test
+    void testAssignStartPosition_inRange() {
+        setupBasicLobby();
+        gameState.initializeFromLobby(mockLobby);
+
+        int pos = gameState.assignStartPosition(hostUser.id());
+
+        assertTrue(pos >= 1 && pos <= 199);
+    }
+
+    @Test
+    void testAssignStartPosition_samePlayerGetsSamePosition() {
+        setupBasicLobby();
+        gameState.initializeFromLobby(mockLobby);
+
+        int pos1 = gameState.assignStartPosition(hostUser.id());
+        int pos2 = gameState.assignStartPosition(hostUser.id());
+
+        assertEquals(pos1, pos2);
+    }
+
+    @Test
+    void testAssignStartPosition_twoPlayersGetDifferentPositions() {
+        setupBasicLobby();
+        gameState.initializeFromLobby(mockLobby);
+
+        int pos1 = gameState.assignStartPosition(hostUser.id());
+        int pos2 = gameState.assignStartPosition(detectiveUser1.id());
+
+        assertNotEquals(pos1, pos2);
+    }
+
+    @Test
+    void testAssignStartPosition_unknownPlayerThrowsException() {
+        assertThrows(IllegalArgumentException.class,
+                () -> gameState.assignStartPosition("unknownPlayer"));
     }
 }

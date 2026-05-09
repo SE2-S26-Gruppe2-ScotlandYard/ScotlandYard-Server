@@ -59,23 +59,34 @@ public class GameState {
             players.put(user.id(), player);
         }
 
-        // set start positions
-        initializeStartPositions();
     }
 
-    private void initializeStartPositions() {
+    public int assignStartPosition(String playerId) {
+        if (!players.containsKey(playerId)) {
+            throw new IllegalArgumentException("Player not found: " + playerId);
+        }
+
+        Integer existingPosition = playerPositions.get(playerId);
+        if (existingPosition != null) {
+            return existingPosition;
+        }
+
         List<Integer> availablePositions = new ArrayList<>();
         for (int i = 1; i <= 199; i++) {
             availablePositions.add(i);
         }
 
-        Collections.shuffle(availablePositions, RANDOM);
+        availablePositions.removeAll(playerPositions.values());
 
-        int index = 0;
-        for (String playerId : players.keySet()) {
-            setPlayerPosition(playerId, availablePositions.get(index));
-            index++;
+        if (availablePositions.isEmpty()) {
+            throw new IllegalStateException("No free start positions available");
         }
+
+        Collections.shuffle(availablePositions, RANDOM);
+        int assignedPosition = availablePositions.getFirst();
+
+        playerPositions.put(playerId, assignedPosition);
+        return assignedPosition;
     }
 
     public boolean activateDoubleMove() {
