@@ -13,7 +13,7 @@ class DetectiveTest {
 
     @BeforeEach
     void setUp() {
-        detective = new Detective(new User("d1", "Sherlock", "12"));
+        detective = new Detective(new User("d1", "Sherlock"));
     }
 
     @Test

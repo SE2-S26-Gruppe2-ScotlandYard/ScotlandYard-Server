@@ -32,11 +32,13 @@ import org.springframework.web.socket.messaging.WebSocketStompClient;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
+import org.springframework.test.annotation.DirtiesContext;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 @ExtendWith(SpringExtension.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class WebSocketBrokerIntegrationTest {
 
     @LocalServerPort
@@ -46,7 +48,6 @@ class WebSocketBrokerIntegrationTest {
     private final String WEBSOCKET_TOPIC = "/topic/hello-response";
     private final String WEBSOCKET_TOPIC_OBJECT = "/topic/rcv-object";
     private final String WEBSOCKET_TOPIC_MOVE = "/topic/move-response";
-
 
     private GameController gameController;
     private String gameId;
@@ -61,18 +62,18 @@ class WebSocketBrokerIntegrationTest {
         gameController = GameController.getInstance();
 
         // create a simple lobby
-        User user1 = new User(playerId, "User1", "pw");
+        User user1 = new User(playerId, "User1");
         Lobby lobby = new Lobby(gameId, user1);
         lobby.addUser(user1);
         lobby.selectRole(playerId, Role.DETECTIVE);
         lobby.markPlayerReady("user1");
 
-        User user2 = new User("user2", "Player2", "pw");
+        User user2 = new User("user2", "Player2");
         lobby.addUser(user2);
         lobby.selectRole("user2", Role.MRX);
         lobby.markPlayerReady("user2");
 
-        User user3 = new User("user3", "Player3", "pw");
+        User user3 = new User("user3", "Player3");
         lobby.addUser(user3);
         lobby.selectRole("user3", Role.DETECTIVE);
         lobby.markPlayerReady("user3");
@@ -200,6 +201,7 @@ class WebSocketBrokerIntegrationTest {
         assertThat(response1).isNotNull();
         assertThat(response2).isNotNull();
     }
+
     @Test
     void testHandleMove_InvalidTicket() throws Exception {
         BlockingQueue<MovementResponse> messages = new LinkedBlockingDeque<>();
@@ -229,6 +231,7 @@ class WebSocketBrokerIntegrationTest {
         assertThat(r1).isNotNull();
         assertThat(r2).isNotNull();
     }
+
     @Test
     void coverage_handleMove_nullMovement_direct() {
         WebSocketBrokerController controller = new WebSocketBrokerController();
@@ -273,7 +276,6 @@ class WebSocketBrokerIntegrationTest {
         SimpMessagingTemplate template = mock(SimpMessagingTemplate.class);
         WebSocketBrokerController controller = new WebSocketBrokerController(template);
 
-
         // set current position first
         GameState gameState = gameController.getGame(gameId);
         gameState.setPlayerPosition(playerId, 2);
@@ -295,7 +297,6 @@ class WebSocketBrokerIntegrationTest {
         // phase is MRX by default, detective tries to move
         GameState gameState = gameController.getGame(gameId);
         gameState.setPlayerPosition(playerId, 2);
-
 
         session.send("/app/move", createMovementMessage(gameId, playerId, TicketType.WALKING, 20));
 
@@ -323,7 +324,6 @@ class WebSocketBrokerIntegrationTest {
         assertThat(response.isSuccess()).isFalse();
         assertThat(response.getMessage()).contains("Not Mr. X's turn");
     }
-
 
     @Test
     void testHandleMove_detectiveAlreadyMoved() throws Exception {
@@ -412,7 +412,6 @@ class WebSocketBrokerIntegrationTest {
     void testCompleteDoubleMoveAction() throws Exception {
         BlockingQueue<MovementResponse> messages = new LinkedBlockingDeque<>();
         StompSession session = initStompSession(WEBSOCKET_TOPIC_MOVE, new JacksonJsonMessageConverter(), messages, MovementResponse.class);
-
 
         GameState gameState = gameController.getGame(gameId);
         gameState .setPlayerPosition("user2", 2);

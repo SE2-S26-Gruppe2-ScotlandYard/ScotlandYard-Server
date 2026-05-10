@@ -12,6 +12,7 @@ import at.aau.serg.websocketdemoserver.lobby.Lobby;
 import at.aau.serg.websocketdemoserver.lobby.User;
 import at.aau.serg.websocketdemoserver.service.GameController;
 import at.aau.serg.websocketdemoserver.service.LobbyService;
+import at.aau.serg.websocketdemoserver.service.UserService;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.handler.annotation.SendTo;
@@ -24,6 +25,7 @@ public class WebSocketBrokerController {
     private final GameController gameController = GameController.getInstance();
     private final LobbyService lobbyService = new LobbyService();
     private final SimpMessagingTemplate messagingTemplate;
+    private final UserService userService = new UserService();
 
     public WebSocketBrokerController() {
         this.messagingTemplate = null;
@@ -31,6 +33,20 @@ public class WebSocketBrokerController {
 
     public WebSocketBrokerController(SimpMessagingTemplate messagingTemplate) {
         this.messagingTemplate = messagingTemplate;
+    }
+
+    @MessageMapping("/user/connect")
+    @SendTo("/topic/user-response")
+    public UserConnectResponse handleUserConnect(UserConnectMessage message) {
+        try {
+            User user = userService.registerUser(message.getNickName());
+            return new UserConnectResponse(true, "User registered", user);
+        } catch (IllegalArgumentException e) {
+            // Wenn der Name vergeben oder leer ist
+            return new UserConnectResponse(false, e.getMessage(), null);
+        } catch (Exception e) {
+            return new UserConnectResponse(false, "Internal Server Error", null);
+        }
     }
 
     @MessageMapping("/hello")
@@ -70,7 +86,7 @@ public class WebSocketBrokerController {
             }
 
             boolean isMrX = gameState.getPlayer(movement.getPlayerId()) != null
-                            && gameState.getPlayer(movement.getPlayerId()).isMrX();
+                    && gameState.getPlayer(movement.getPlayerId()).isMrX();
 
             TurnType phase = gameState.getCurrentPhase();
 
@@ -176,8 +192,7 @@ public class WebSocketBrokerController {
         try {
             User host = new User(
                     message.getUserId(),
-                    message.getUserName(),
-                    message.getPassword()
+                    message.getNickName()
             );
 
             Lobby lobby = lobbyService.createLobby(message.getLobbyName(), host);
@@ -194,8 +209,7 @@ public class WebSocketBrokerController {
         try {
             User user = new User(
                     message.getUserId(),
-                    message.getUserName(),
-                    message.getPassword()
+                    message.getNickName()
             );
 
             Lobby lobby = lobbyService.joinLobby(message.getLobbyId(), user);
@@ -267,7 +281,7 @@ public class WebSocketBrokerController {
     }
 
     private void broadcastGameState(String gameId, GameState gameState) {
-        if (messagingTemplate != null) {        //broadcast gameState
+        if (messagingTemplate != null) {
             messagingTemplate.convertAndSend("/topic/game/" + gameId, gameState);
         }
     }
