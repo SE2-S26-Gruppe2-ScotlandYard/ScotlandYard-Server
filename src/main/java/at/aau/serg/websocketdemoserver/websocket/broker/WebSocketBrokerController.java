@@ -1,11 +1,7 @@
 package at.aau.serg.websocketdemoserver.websocket.broker;
 
 import at.aau.serg.websocketdemoserver.dtos.StompMessage;
-import at.aau.serg.websocketdemoserver.dtos.lobby.CreateLobbyMessage;
-import at.aau.serg.websocketdemoserver.dtos.lobby.DeleteLobbyMessage;
-import at.aau.serg.websocketdemoserver.dtos.lobby.JoinLobbyMessage;
-import at.aau.serg.websocketdemoserver.dtos.lobby.LeaveLobbyMessage;
-import at.aau.serg.websocketdemoserver.dtos.lobby.LobbyResponse;
+import at.aau.serg.websocketdemoserver.dtos.lobby.*;
 import at.aau.serg.websocketdemoserver.dtos.movement.MovementMessage;
 import at.aau.serg.websocketdemoserver.dtos.movement.MovementResponse;
 import at.aau.serg.websocketdemoserver.gamelogic.GameState;
@@ -122,6 +118,8 @@ public class WebSocketBrokerController {
                     return new MovementResponse(false, "Cannot activate double move ticket", playerPosition, null);
                 }
 
+
+
                 broadcastGameState(movement.getGameId(), gameState);
 
                 return new MovementResponse(true, "Double move ticket activated", playerPosition, null);
@@ -233,6 +231,36 @@ public class WebSocketBrokerController {
             lobbyService.deleteLobby(message.getLobbyId(), message.getRequesterId());
 
             return new LobbyResponse(true, "Lobby deleted", message.getLobbyId(), null);
+        } catch (Exception e) {
+            return new LobbyResponse(false, e.getMessage(), null, null);
+        }
+    }
+    @MessageMapping("/lobby/kick")
+    @SendTo("/topic/lobby")
+    public LobbyResponse handleKickPlayer(KickPlayerMessage message) {
+        try {
+            Lobby lobby = lobbyService.kickPlayer(
+                    message.getLobbyId(),
+                    message.getRequesterId(),
+                    message.getTargetUserId()
+            );
+            return new LobbyResponse(true, "Player kicked", lobby.getId(), lobby);
+        } catch (Exception e) {
+            return new LobbyResponse(false, e.getMessage(), null, null);
+        }
+    }
+
+    @MessageMapping("/lobby/setRole")
+    @SendTo("/topic/lobby")
+    public LobbyResponse handleSetRole(SetRoleMessage message) {
+        try {
+            Lobby lobby = lobbyService.setRole(
+                    message.getLobbyId(),
+                    message.getRequesterId(),
+                    message.getTargetUserId(),
+                    message.getRole()
+            );
+            return new LobbyResponse(true, "Role set", lobby.getId(), lobby);
         } catch (Exception e) {
             return new LobbyResponse(false, e.getMessage(), null, null);
         }
