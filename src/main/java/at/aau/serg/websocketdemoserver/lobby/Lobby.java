@@ -34,12 +34,14 @@ public class Lobby {
         addUser(host);
     }
 
+    // NEU – SecureRandom als statisches Feld:
+    private static final java.security.SecureRandom SECURE_RANDOM = new java.security.SecureRandom();
+
     private static String generateCode() {
         String chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-        java.security.SecureRandom random = new java.security.SecureRandom();
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < 5; i++) {
-            sb.append(chars.charAt(random.nextInt(chars.length())));
+            sb.append(chars.charAt(SECURE_RANDOM.nextInt(chars.length())));
         }
         return sb.toString();
     }
