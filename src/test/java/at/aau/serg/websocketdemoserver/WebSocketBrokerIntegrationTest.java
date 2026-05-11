@@ -286,7 +286,7 @@ class WebSocketBrokerIntegrationTest {
 
         controller.handleMove(createMovementMessage(gameId, playerId, TicketType.WALKING, 20));
 
-        verify(template).convertAndSend(anyString(), any(Object.class));
+        verify(template, times(3)).convertAndSend(anyString(), any(Object.class));
     }
 
     @Test
