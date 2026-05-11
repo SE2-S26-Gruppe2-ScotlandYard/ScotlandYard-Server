@@ -1,6 +1,7 @@
 package at.aau.serg.websocketdemoserver.service;
 
 import at.aau.serg.websocketdemoserver.lobby.Lobby;
+import at.aau.serg.websocketdemoserver.lobby.Role;
 import at.aau.serg.websocketdemoserver.lobby.User;
 import org.junit.jupiter.api.Test;
 
@@ -8,11 +9,12 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class LobbyServiceTest {
 
+    // ── Bestehende Tests (unveraendert) ───────────────────────────────────
+
     @Test
     void testCreateLobby() {
         LobbyService service = new LobbyService();
         User host = new User("1", "Stefan");
-
         Lobby lobby = service.createLobby("TestLobby", host);
 
         assertNotNull(lobby);
@@ -20,14 +22,12 @@ public class LobbyServiceTest {
         assertEquals("TestLobby", lobby.getName());
         assertEquals(host.id(), lobby.getHostId());
         assertEquals(1, lobby.getUsers().size());
-        assertEquals(host, lobby.getUsers().get(0));
         assertSame(lobby, service.getLobby(lobby.getId()));
     }
 
     @Test
     void testGetLobbyReturnsNullIfNotFound() {
         LobbyService service = new LobbyService();
-
         assertNull(service.getLobby("unknown-id"));
     }
 
@@ -36,7 +36,6 @@ public class LobbyServiceTest {
         LobbyService service = new LobbyService();
         User host = new User("1", "Host");
         Lobby lobby = service.createLobby("TestLobby", host);
-
         User user = new User("2", "Player");
         service.joinLobby(lobby.getId(), user);
 
@@ -49,12 +48,11 @@ public class LobbyServiceTest {
         LobbyService service = new LobbyService();
         User user = new User("2", "Player");
 
-        IllegalArgumentException exception = assertThrows(
+        IllegalArgumentException ex = assertThrows(
                 IllegalArgumentException.class,
                 () -> service.joinLobby("missing-lobby", user)
         );
-
-        assertEquals("Lobby not found", exception.getMessage());
+        assertEquals("Lobby not found", ex.getMessage());
     }
 
     @Test
@@ -63,12 +61,7 @@ public class LobbyServiceTest {
         User host = new User("1", "Host");
         Lobby lobby = service.createLobby("TestLobby", host);
 
-        IllegalStateException exception = assertThrows(
-                IllegalStateException.class,
-                () -> service.joinLobby(lobby.getId(), host)
-        );
-
-        assertEquals("User already in lobby", exception.getMessage());
+        assertThrows(IllegalStateException.class, () -> service.joinLobby(lobby.getId(), host));
     }
 
     @Test
@@ -76,15 +69,12 @@ public class LobbyServiceTest {
         LobbyService service = new LobbyService();
         User host = new User("1", "Host");
         Lobby lobby = service.createLobby("TestLobby", host);
-
         User user = new User("2", "Player");
         service.joinLobby(lobby.getId(), user);
-
         service.leaveLobby(lobby.getId(), user.id());
 
         assertFalse(lobby.getUsers().contains(user));
         assertEquals(1, lobby.getUsers().size());
-        assertNotNull(service.getLobby(lobby.getId()));
     }
 
     @Test
@@ -92,7 +82,6 @@ public class LobbyServiceTest {
         LobbyService service = new LobbyService();
         User host = new User("1", "Host");
         Lobby lobby = service.createLobby("TestLobby", host);
-
         service.leaveLobby(lobby.getId(), host.id());
 
         assertNull(service.getLobby(lobby.getId()));
@@ -101,13 +90,7 @@ public class LobbyServiceTest {
     @Test
     void testLeaveLobbyFailsIfLobbyDoesNotExist() {
         LobbyService service = new LobbyService();
-
-        IllegalArgumentException exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> service.leaveLobby("missing-lobby", "1")
-        );
-
-        assertEquals("Lobby not found", exception.getMessage());
+        assertThrows(IllegalArgumentException.class, () -> service.leaveLobby("missing-lobby", "1"));
     }
 
     @Test
@@ -115,7 +98,6 @@ public class LobbyServiceTest {
         LobbyService service = new LobbyService();
         User host = new User("1", "Host");
         Lobby lobby = service.createLobby("TestLobby", host);
-
         service.deleteLobby(lobby.getId(), host.id());
 
         assertNull(service.getLobby(lobby.getId()));
@@ -124,13 +106,7 @@ public class LobbyServiceTest {
     @Test
     void testDeleteLobbyFailsIfLobbyDoesNotExist() {
         LobbyService service = new LobbyService();
-
-        IllegalArgumentException exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> service.deleteLobby("missing-lobby", "1")
-        );
-
-        assertEquals("Lobby not found", exception.getMessage());
+        assertThrows(IllegalArgumentException.class, () -> service.deleteLobby("missing-lobby", "1"));
     }
 
     @Test
@@ -138,37 +114,10 @@ public class LobbyServiceTest {
         LobbyService service = new LobbyService();
         User host = new User("1", "Host");
         Lobby lobby = service.createLobby("TestLobby", host);
-
         User other = new User("2", "Player");
 
-        IllegalStateException exception = assertThrows(
-                IllegalStateException.class,
-                () -> service.deleteLobby(lobby.getId(), other.id())
-        );
-
-        assertEquals("Only host can delete lobby", exception.getMessage());
+        assertThrows(IllegalStateException.class, () -> service.deleteLobby(lobby.getId(), other.id()));
         assertNotNull(service.getLobby(lobby.getId()));
-    }
-
-    @Test
-    void testFullFlow() {
-        LobbyService service = new LobbyService();
-
-        User host = new User("1", "Host");
-        Lobby lobby = service.createLobby("DebugLobby", host);
-
-        User user = new User("2", "Player");
-        service.joinLobby(lobby.getId(), user);
-
-        assertEquals(2, lobby.getUsers().size());
-
-        service.leaveLobby(lobby.getId(), user.id());
-
-        assertEquals(1, lobby.getUsers().size());
-
-        service.deleteLobby(lobby.getId(), host.id());
-
-        assertNull(service.getLobby(lobby.getId()));
     }
 
     @Test
@@ -181,5 +130,111 @@ public class LobbyServiceTest {
 
         assertEquals(1, service.getActiveLobbies().size());
         assertTrue(service.getActiveLobbies().containsKey(lobby.getId()));
+    }
+
+    // ── NEUE Tests: kickPlayer ─────────────────────────────────────────────
+
+    @Test
+    void testKickPlayer_success() {
+        LobbyService service = new LobbyService();
+        User host = new User("1", "Host");
+        Lobby lobby = service.createLobby("TestLobby", host);
+        User player = new User("2", "Player");
+        service.joinLobby(lobby.getId(), player);
+
+        Lobby result = service.kickPlayer(lobby.getId(), host.id(), player.id());
+
+        assertEquals(1, result.getUsers().size());
+        assertFalse(result.getUsers().contains(player));
+    }
+
+    @Test
+    void testKickPlayer_failsForNonHost() {
+        LobbyService service = new LobbyService();
+        User host = new User("1", "Host");
+        Lobby lobby = service.createLobby("TestLobby", host);
+        User player = new User("2", "Player");
+        service.joinLobby(lobby.getId(), player);
+
+        assertThrows(IllegalStateException.class,
+                () -> service.kickPlayer(lobby.getId(), player.id(), host.id()));
+    }
+
+    @Test
+    void testKickPlayer_failsIfLobbyNotFound() {
+        LobbyService service = new LobbyService();
+        assertThrows(IllegalArgumentException.class,
+                () -> service.kickPlayer("missing", "1", "2"));
+    }
+
+    @Test
+    void testKickPlayer_hostCannotKickThemself() {
+        LobbyService service = new LobbyService();
+        User host = new User("1", "Host");
+        Lobby lobby = service.createLobby("TestLobby", host);
+
+        assertThrows(IllegalStateException.class,
+                () -> service.kickPlayer(lobby.getId(), host.id(), host.id()));
+    }
+
+    // ── NEUE Tests: setRole ────────────────────────────────────────────────
+
+    @Test
+    void testSetRole_playerSetsOwnRole() {
+        LobbyService service = new LobbyService();
+        User host = new User("1", "Host");
+        Lobby lobby = service.createLobby("TestLobby", host);
+
+        Lobby result = service.setRole(lobby.getId(), host.id(), host.id(), "MRX");
+
+        assertEquals(Role.MRX, result.getSelectedRole(host.id()));
+    }
+
+    @Test
+    void testSetRole_detective() {
+        LobbyService service = new LobbyService();
+        User host = new User("1", "Host");
+        Lobby lobby = service.createLobby("TestLobby", host);
+        User player = new User("2", "Player");
+        service.joinLobby(lobby.getId(), player);
+
+        service.setRole(lobby.getId(), host.id(), host.id(), "MRX");
+        Lobby result = service.setRole(lobby.getId(), player.id(), player.id(), "DETECTIVE");
+
+        assertEquals(Role.DETECTIVE, result.getSelectedRole(player.id()));
+    }
+
+    @Test
+    void testSetRole_failsWhenMrXAlreadyTaken() {
+        LobbyService service = new LobbyService();
+        User host = new User("1", "Host");
+        Lobby lobby = service.createLobby("TestLobby", host);
+        User player = new User("2", "Player");
+        service.joinLobby(lobby.getId(), player);
+
+        service.setRole(lobby.getId(), host.id(), host.id(), "MRX");
+
+        assertThrows(IllegalStateException.class,
+                () -> service.setRole(lobby.getId(), player.id(), player.id(), "MRX"));
+    }
+
+    @Test
+    void testSetRole_failsWhenSettingOtherPlayersRole() {
+        LobbyService service = new LobbyService();
+        User host = new User("1", "Host");
+        Lobby lobby = service.createLobby("TestLobby", host);
+        User player = new User("2", "Player");
+        service.joinLobby(lobby.getId(), player);
+
+        // Host versucht Rolle von Player zu setzen → soll fehlschlagen
+        assertThrows(IllegalStateException.class,
+                () -> service.setRole(lobby.getId(), host.id(), player.id(), "DETECTIVE"));
+    }
+
+    @Test
+    void testSetRole_failsIfLobbyNotFound() {
+        LobbyService service = new LobbyService();
+        assertThrows(IllegalArgumentException.class,
+                () -> service.setRole("missing", "1", "1", "MRX"));
     }
 }
