@@ -36,7 +36,7 @@ public class Lobby {
 
     private static String generateCode() {
         String chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-        java.util.Random random = new java.util.Random();
+        java.security.SecureRandom random = new java.security.SecureRandom();
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < 5; i++) {
             sb.append(chars.charAt(random.nextInt(chars.length())));
