@@ -1,15 +1,7 @@
 package at.aau.serg.websocketdemoserver.websocket.broker;
 
 import at.aau.serg.websocketdemoserver.dtos.StompMessage;
-import at.aau.serg.websocketdemoserver.dtos.lobby.CreateLobbyMessage;
-import at.aau.serg.websocketdemoserver.dtos.lobby.DeleteLobbyMessage;
-import at.aau.serg.websocketdemoserver.dtos.lobby.JoinLobbyMessage;
-import at.aau.serg.websocketdemoserver.dtos.lobby.KickPlayerMessage;
-import at.aau.serg.websocketdemoserver.dtos.lobby.LeaveLobbyMessage;
-import at.aau.serg.websocketdemoserver.dtos.lobby.LobbyResponse;
-import at.aau.serg.websocketdemoserver.dtos.lobby.SetRoleMessage;
-import at.aau.serg.websocketdemoserver.dtos.lobby.UserConnectMessage;
-import at.aau.serg.websocketdemoserver.dtos.lobby.UserConnectResponse;
+import at.aau.serg.websocketdemoserver.dtos.lobby.*;
 import at.aau.serg.websocketdemoserver.dtos.movement.MovementMessage;
 import at.aau.serg.websocketdemoserver.dtos.movement.MovementResponse;
 import at.aau.serg.websocketdemoserver.gamelogic.GameState;
@@ -26,7 +18,6 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
-import at.aau.serg.websocketdemoserver.dtos.lobby.StartRoleSelectionMessage;
 
 @Controller
 public class WebSocketBrokerController {
@@ -148,8 +139,26 @@ public class WebSocketBrokerController {
             if (lobby == null) throw new IllegalArgumentException("Lobby not found");
             if (!lobby.getHostId().equals(message.getRequesterId()))
                 throw new IllegalStateException("Only host can start role selection");
-            // Nutze isStarted als Signal für Rollenwahl-Phase
+            
+            lobby.setLocked(true); // Lock the lobby when role selection starts
+
             broadcast(new LobbyResponse(true, "ROLE_SELECTION_STARTED", lobby.getId(), lobby));
+        } catch (Exception e) {
+            broadcast(new LobbyResponse(false, e.getMessage(), null, null));
+        }
+    }
+
+    @MessageMapping("/lobby/backToLobby")
+    public void handleBackToLobby(BackToLobbyMessage message) {
+        try {
+            Lobby lobby = lobbyService.getLobby(message.getLobbyId());
+            if (lobby == null) throw new IllegalArgumentException("Lobby not found");
+            if (!lobby.getHostId().equals(message.getRequesterId()))
+                throw new IllegalStateException("Only host can go back to lobby");
+
+            lobby.setLocked(false); // Unlock the lobby
+
+            broadcast(new LobbyResponse(true, "BACK_TO_LOBBY", lobby.getId(), lobby));
         } catch (Exception e) {
             broadcast(new LobbyResponse(false, e.getMessage(), null, null));
         }
