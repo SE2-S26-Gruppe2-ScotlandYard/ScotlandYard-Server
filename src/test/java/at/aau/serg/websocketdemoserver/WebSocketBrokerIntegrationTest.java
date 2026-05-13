@@ -234,7 +234,7 @@ class WebSocketBrokerIntegrationTest {
 
     @Test
     void coverage_handleMove_nullMovement_direct() {
-        WebSocketBrokerController controller = new WebSocketBrokerController();
+        WebSocketBrokerController controller = new WebSocketBrokerController(org.mockito.Mockito.mock(org.springframework.messaging.simp.SimpMessagingTemplate.class));
 
         MovementResponse response = controller.handleMove(null);
 
@@ -244,7 +244,7 @@ class WebSocketBrokerIntegrationTest {
 
     @Test
     void coverage_handleMove_invalidPlayerPosition_direct() {
-        WebSocketBrokerController controller = new WebSocketBrokerController();
+        WebSocketBrokerController controller = new WebSocketBrokerController(org.mockito.Mockito.mock(org.springframework.messaging.simp.SimpMessagingTemplate.class));
 
         MovementResponse response = controller.handleMove(createMovementMessage("unknownGame", "invalid", null, 20));
 
@@ -254,7 +254,7 @@ class WebSocketBrokerIntegrationTest {
 
     @Test
     void coverage_handleMove_exception_direct() {
-        WebSocketBrokerController controller = new WebSocketBrokerController();
+        WebSocketBrokerController controller = new WebSocketBrokerController(org.mockito.Mockito.mock(org.springframework.messaging.simp.SimpMessagingTemplate.class));
 
         MovementResponse response = controller.handleMove(createMovementMessage("1", "p1", null, 20));
 
@@ -263,7 +263,7 @@ class WebSocketBrokerIntegrationTest {
 
     @Test
     void coverage_handleMove_invalidMove_branch() {
-        WebSocketBrokerController controller = new WebSocketBrokerController();
+        WebSocketBrokerController controller = new WebSocketBrokerController(org.mockito.Mockito.mock(org.springframework.messaging.simp.SimpMessagingTemplate.class));
 
         MovementResponse response = controller.handleMove(createMovementMessage("game1", playerId, null, -999));
 
@@ -286,7 +286,7 @@ class WebSocketBrokerIntegrationTest {
 
         controller.handleMove(createMovementMessage(gameId, playerId, TicketType.WALKING, 20));
 
-        verify(template).convertAndSend(anyString(), any(Object.class));
+        verify(template, atLeast(1)).convertAndSend(anyString(), any(Object.class));
     }
 
     @Test

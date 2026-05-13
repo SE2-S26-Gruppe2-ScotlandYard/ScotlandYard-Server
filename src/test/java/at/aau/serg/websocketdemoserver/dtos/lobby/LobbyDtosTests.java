@@ -410,4 +410,127 @@ class LobbyDtosTests {
         assertThat(response.getMessage()).isEqualTo("Success");
         assertThat(response.getUser()).isEqualTo(user);
     }
+    // ── NEUE Tests: KickPlayerMessage ──────────────────────────────────────
+
+    @Test
+    void testKickPlayerMessageNoArgsConstructor() {
+        KickPlayerMessage message = new KickPlayerMessage();
+        assertThat(message.getLobbyId()).isNull();
+        assertThat(message.getRequesterId()).isNull();
+        assertThat(message.getTargetUserId()).isNull();
+    }
+
+    @Test
+    void testKickPlayerMessageAllArgsConstructor() {
+        KickPlayerMessage message = new KickPlayerMessage("lobby-1", "host-1", "user-2");
+        assertThat(message.getLobbyId()).isEqualTo("lobby-1");
+        assertThat(message.getRequesterId()).isEqualTo("host-1");
+        assertThat(message.getTargetUserId()).isEqualTo("user-2");
+    }
+
+    @Test
+    void testKickPlayerMessageSettersAndGetters() {
+        KickPlayerMessage message = new KickPlayerMessage();
+        message.setLobbyId("lobby-1");
+        message.setRequesterId("host-1");
+        message.setTargetUserId("user-2");
+
+        assertThat(message.getLobbyId()).isEqualTo("lobby-1");
+        assertThat(message.getRequesterId()).isEqualTo("host-1");
+        assertThat(message.getTargetUserId()).isEqualTo("user-2");
+    }
+
+    @Test
+    void testKickPlayerMessageEqualsAndHashCode() {
+        KickPlayerMessage m1 = new KickPlayerMessage("lobby-1", "host-1", "user-2");
+        KickPlayerMessage m2 = new KickPlayerMessage("lobby-1", "host-1", "user-2");
+        KickPlayerMessage m3 = new KickPlayerMessage("lobby-2", "host-2", "user-3");
+
+        assertThat(m1).isEqualTo(m2);
+        assertThat(m1.hashCode()).isEqualTo(m2.hashCode());
+        assertThat(m1).isNotEqualTo(m3);
+        assertThat(m1).isNotEqualTo(null);
+    }
+
+    // ── NEUE Tests: SetRoleMessage ─────────────────────────────────────────
+
+    @Test
+    void testSetRoleMessageNoArgsConstructor() {
+        SetRoleMessage message = new SetRoleMessage();
+        assertThat(message.getLobbyId()).isNull();
+        assertThat(message.getRequesterId()).isNull();
+        assertThat(message.getTargetUserId()).isNull();
+        assertThat(message.getRole()).isNull();
+    }
+
+    @Test
+    void testSetRoleMessageAllArgsConstructor() {
+        SetRoleMessage message = new SetRoleMessage("lobby-1", "user-1", "user-1", "MRX");
+        assertThat(message.getLobbyId()).isEqualTo("lobby-1");
+        assertThat(message.getRequesterId()).isEqualTo("user-1");
+        assertThat(message.getTargetUserId()).isEqualTo("user-1");
+        assertThat(message.getRole()).isEqualTo("MRX");
+    }
+
+    @Test
+    void testSetRoleMessageSettersAndGetters() {
+        SetRoleMessage message = new SetRoleMessage();
+        message.setLobbyId("lobby-1");
+        message.setRequesterId("user-1");
+        message.setTargetUserId("user-1");
+        message.setRole("DETECTIVE");
+
+        assertThat(message.getLobbyId()).isEqualTo("lobby-1");
+        assertThat(message.getRequesterId()).isEqualTo("user-1");
+        assertThat(message.getTargetUserId()).isEqualTo("user-1");
+        assertThat(message.getRole()).isEqualTo("DETECTIVE");
+    }
+
+    @Test
+    void testSetRoleMessageEqualsAndHashCode() {
+        SetRoleMessage m1 = new SetRoleMessage("lobby-1", "user-1", "user-1", "MRX");
+        SetRoleMessage m2 = new SetRoleMessage("lobby-1", "user-1", "user-1", "MRX");
+        SetRoleMessage m3 = new SetRoleMessage("lobby-2", "user-2", "user-2", "DETECTIVE");
+
+        assertThat(m1).isEqualTo(m2);
+        assertThat(m1.hashCode()).isEqualTo(m2.hashCode());
+        assertThat(m1).isNotEqualTo(m3);
+    }
+
+    // ── NEUE Tests: StartRoleSelectionMessage ──────────────────────────────
+
+    @Test
+    void testStartRoleSelectionMessageNoArgsConstructor() {
+        StartRoleSelectionMessage message = new StartRoleSelectionMessage();
+        assertThat(message.getLobbyId()).isNull();
+        assertThat(message.getRequesterId()).isNull();
+    }
+
+    @Test
+    void testStartRoleSelectionMessageAllArgsConstructor() {
+        StartRoleSelectionMessage message = new StartRoleSelectionMessage("lobby-1", "host-1");
+        assertThat(message.getLobbyId()).isEqualTo("lobby-1");
+        assertThat(message.getRequesterId()).isEqualTo("host-1");
+    }
+
+    @Test
+    void testStartRoleSelectionMessageSettersAndGetters() {
+        StartRoleSelectionMessage message = new StartRoleSelectionMessage();
+        message.setLobbyId("lobby-1");
+        message.setRequesterId("host-1");
+
+        assertThat(message.getLobbyId()).isEqualTo("lobby-1");
+        assertThat(message.getRequesterId()).isEqualTo("host-1");
+    }
+
+    @Test
+    void testStartRoleSelectionMessageEqualsAndHashCode() {
+        StartRoleSelectionMessage m1 = new StartRoleSelectionMessage("lobby-1", "host-1");
+        StartRoleSelectionMessage m2 = new StartRoleSelectionMessage("lobby-1", "host-1");
+        StartRoleSelectionMessage m3 = new StartRoleSelectionMessage("lobby-2", "host-2");
+
+        assertThat(m1).isEqualTo(m2);
+        assertThat(m1.hashCode()).isEqualTo(m2.hashCode());
+        assertThat(m1).isNotEqualTo(m3);
+    }
 }
