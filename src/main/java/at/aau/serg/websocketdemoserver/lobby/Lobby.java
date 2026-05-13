@@ -19,11 +19,31 @@ public class Lobby {
     private final Map<String, Boolean> readyStatus = new HashMap<>();
     private final Map<String, Role> selectedRoles = new HashMap<>();
 
+    public Map<String, Boolean> getReadyStatus() {
+        return Collections.unmodifiableMap(readyStatus);
+    }
+
+    public Map<String, Role> getSelectedRoles() {
+        return Collections.unmodifiableMap(selectedRoles);
+    }
+
     public Lobby(String name, User host) {
-        this.id = UUID.randomUUID().toString();
+        this.id = generateCode();
         this.name = name;
         this.hostId = host.id();
         addUser(host);
+    }
+
+    // NEU – SecureRandom als statisches Feld:
+    private static final java.security.SecureRandom SECURE_RANDOM = new java.security.SecureRandom();
+
+    private static String generateCode() {
+        String chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < 5; i++) {
+            sb.append(chars.charAt(SECURE_RANDOM.nextInt(chars.length())));
+        }
+        return sb.toString();
     }
 
     public void addUser(User user) {
