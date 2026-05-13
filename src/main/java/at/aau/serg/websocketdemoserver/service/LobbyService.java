@@ -14,6 +14,10 @@ public class LobbyService {
 
     public Lobby createLobby(String lobbyName, User host) {
         Lobby lobby = new Lobby(lobbyName, host);
+        // Sicherstellen dass der Code eindeutig ist
+        while (activeLobbies.containsKey(lobby.getId())) {
+            lobby = new Lobby(lobbyName, host);
+        }
         activeLobbies.put(lobby.getId(), lobby);
         return lobby;
     }
