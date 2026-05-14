@@ -15,8 +15,7 @@ import at.aau.serg.websocketdemoserver.dtos.lobby.UserConnectResponse;
 import at.aau.serg.websocketdemoserver.dtos.movement.MovementMessage;
 import at.aau.serg.websocketdemoserver.dtos.movement.MovementResponse;
 import at.aau.serg.websocketdemoserver.gamelogic.GameState;
-import at.aau.serg.websocketdemoserver.gamelogic.player.Player;
-import at.aau.serg.websocketdemoserver.gamelogic.player.TicketType;
+import at.aau.serg.websocketdemoserver.gamelogic.player.Player;import at.aau.serg.websocketdemoserver.gamelogic.player.TicketType;
 import at.aau.serg.websocketdemoserver.gamelogic.turn.TurnType;
 import at.aau.serg.websocketdemoserver.lobby.Lobby;
 import at.aau.serg.websocketdemoserver.lobby.User;
@@ -28,6 +27,7 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
+import at.aau.serg.websocketdemoserver.dtos.lobby.StartGameMessage;
 import at.aau.serg.websocketdemoserver.dtos.lobby.StartRoleSelectionMessage;
 
 @Controller
@@ -160,11 +160,29 @@ public class WebSocketBrokerController {
         }
     }
 
+    @MessageMapping("/lobby/startGame")
+    public void handleStartGame(StartGameMessage message) {
+        try {
+            Lobby lobby = lobbyService.getLobby(message.getLobbyId());
+            if (lobby == null) throw new IllegalArgumentException("Lobby not found");
+            if (!lobby.getHostId().equals(message.getRequesterId()))
+                throw new IllegalStateException("Only host can start the game");
+
+            GameState gameState = new GameState(lobby.getId());
+            gameState.initializePlayersFromLobby(lobby);
+            gameController.addGame(lobby.getId(), gameState);
+
+            broadcast(new LobbyResponse(true, "GAME_STARTED", lobby.getId(), lobby));
+        } catch (Exception e) {
+            broadcast(new LobbyResponse(false, e.getMessage(), null, null));
+        }
+    }
+
     private void broadcast(LobbyResponse response) {
         messagingTemplate.convertAndSend("/topic/lobby", response);
     }
 
-    @MessageMapping("/game/start-position")
+    @MessageMapping("/game/start-position/request")
     public void handleStartPositionRequest(StartPositionRequest request) {
         String gameId = request.getGameId();
         String playerId = request.getPlayerId();

@@ -61,6 +61,30 @@ public class GameState {
 
     }
 
+    /**
+     * Initializes players directly from the lobby's current user list and roles,
+     * without enforcing canStartGame() conditions. Useful when the game is started
+     * before all lobby preconditions (min. players, ready status) are fully met,
+     * e.g. during development or testing.
+     */
+    public void initializePlayersFromLobby(Lobby lobby) {
+        for (User user : lobby.getUsers()) {
+            Role role = lobby.getSelectedRole(user.id());
+            Player player;
+            if (role == Role.MRX) {
+                player = new MrX(user);
+                this.mrXId = user.id();
+            } else {
+                player = new Detective(user);
+            }
+            players.put(user.id(), player);
+        }
+        Set<String> detectiveIds = players.keySet().stream()
+                .filter(id -> !id.equals(mrXId))
+                .collect(Collectors.toSet());
+        roundController.initDetectives(detectiveIds);
+    }
+
     public int assignStartPosition(String playerId) {
         if (!players.containsKey(playerId)) {
             throw new IllegalArgumentException("Player not found: " + playerId);
