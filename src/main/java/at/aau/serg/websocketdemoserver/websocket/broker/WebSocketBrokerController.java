@@ -33,14 +33,17 @@ public class WebSocketBrokerController {
         this.messagingTemplate = messagingTemplate;
     }
 
+    // 1. Private Antworten an den Auslöser über das dedizierte Player-Topic
     private void sendToUser(String userId, Object payload) {
         messagingTemplate.convertAndSend("/topic/player/" + userId, payload);
     }
 
+    // 2. Globale Antworten (NUR für den Server-Browser: Erstellen & Löschen)
     private void broadcastToGlobalLobbyList(LobbyResponse response) {
         messagingTemplate.convertAndSend("/topic/lobby", response);
     }
 
+    // 3. Isolierte Antworten (NUR für die Spieler, die physisch IN dieser Lobby sind)
     private void broadcastToSpecificLobby(String lobbyId, LobbyResponse response) {
         messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, response);
     }
@@ -69,11 +72,11 @@ public class WebSocketBrokerController {
         return msg;
     }
 
+    // Login läuft weiterhin über SendToUser (interne Session), das funktioniert zuverlässig
     @MessageMapping("/user/connect")
     @SendToUser("/topic/user-response")
     public UserConnectResponse handleUserConnect(UserConnectMessage message) {
         try {
-            if (message == null) throw new IllegalArgumentException("Message is null");
             User user = userService.registerUser(message.getNickName());
             return new UserConnectResponse(true, "User registered", user);
         } catch (IllegalArgumentException e) {
@@ -86,7 +89,6 @@ public class WebSocketBrokerController {
     @MessageMapping("/lobby/create")
     public void handleCreateLobby(CreateLobbyMessage message) {
         try {
-            if (message == null) throw new IllegalArgumentException("Message is null");
             User host = new User(message.getUserId(), message.getNickName());
             Lobby lobby = lobbyService.createLobby(message.getLobbyName(), host);
             LobbyResponse response = new LobbyResponse(true, "Lobby created", lobby.getId(), lobby);
@@ -94,15 +96,13 @@ public class WebSocketBrokerController {
             sendToUser(message.getUserId(), response);
             broadcastToGlobalLobbyList(response);
         } catch (Exception e) {
-            String uId = (message != null && message.getUserId() != null) ? message.getUserId() : "unknown";
-            sendToUser(uId, new LobbyResponse(false, e.getMessage(), null, null));
+            sendToUser(message.getUserId(), new LobbyResponse(false, e.getMessage(), null, null));
         }
     }
 
     @MessageMapping("/lobby/join")
     public void handleJoinLobby(JoinLobbyMessage message) {
         try {
-            if (message == null) throw new IllegalArgumentException("Message is null");
             User user = new User(message.getUserId(), message.getNickName());
             Lobby lobby = lobbyService.joinLobby(message.getLobbyId(), user);
             LobbyResponse response = new LobbyResponse(true, "Joined lobby", lobby.getId(), lobby);
@@ -110,16 +110,13 @@ public class WebSocketBrokerController {
             sendToUser(message.getUserId(), response);
             broadcastToSpecificLobby(lobby.getId(), response);
         } catch (Exception e) {
-            String uId = (message != null && message.getUserId() != null) ? message.getUserId() : "unknown";
-            String lId = (message != null) ? message.getLobbyId() : null;
-            sendToUser(uId, new LobbyResponse(false, e.getMessage(), lId, null));
+            sendToUser(message.getUserId(), new LobbyResponse(false, e.getMessage(), message.getLobbyId(), null));
         }
     }
 
     @MessageMapping("/lobby/leave")
     public void handleLeaveLobby(LeaveLobbyMessage message) {
         try {
-            if (message == null) throw new IllegalArgumentException("Message is null");
             lobbyService.leaveLobby(message.getLobbyId(), message.getUserId());
             Lobby updatedLobby = lobbyService.getLobby(message.getLobbyId());
 
@@ -133,16 +130,13 @@ public class WebSocketBrokerController {
                 broadcastToSpecificLobby(updatedLobby.getId(), response);
             }
         } catch (Exception e) {
-            String uId = (message != null && message.getUserId() != null) ? message.getUserId() : "unknown";
-            String lId = (message != null) ? message.getLobbyId() : null;
-            sendToUser(uId, new LobbyResponse(false, e.getMessage(), lId, null));
+            sendToUser(message.getUserId(), new LobbyResponse(false, e.getMessage(), message.getLobbyId(), null));
         }
     }
 
     @MessageMapping("/lobby/delete")
     public void handleDeleteLobby(DeleteLobbyMessage message) {
         try {
-            if (message == null) throw new IllegalArgumentException("Message is null");
             lobbyService.deleteLobby(message.getLobbyId(), message.getRequesterId());
             LobbyResponse response = new LobbyResponse(true, "Lobby deleted", message.getLobbyId(), null);
 
@@ -150,16 +144,13 @@ public class WebSocketBrokerController {
             broadcastToSpecificLobby(message.getLobbyId(), response);
             broadcastToGlobalLobbyList(response);
         } catch (Exception e) {
-            String reqId = (message != null && message.getRequesterId() != null) ? message.getRequesterId() : "unknown";
-            String lId = (message != null) ? message.getLobbyId() : null;
-            sendToUser(reqId, new LobbyResponse(false, e.getMessage(), lId, null));
+            sendToUser(message.getRequesterId(), new LobbyResponse(false, e.getMessage(), message.getLobbyId(), null));
         }
     }
 
     @MessageMapping("/lobby/kick")
     public void handleKickPlayer(KickPlayerMessage message) {
         try {
-            if (message == null) throw new IllegalArgumentException("Message is null");
             Lobby lobby = lobbyService.kickPlayer(
                     message.getLobbyId(),
                     message.getRequesterId(),
@@ -170,16 +161,13 @@ public class WebSocketBrokerController {
             sendToUser(message.getTargetUserId(), response);
             broadcastToSpecificLobby(lobby.getId(), response);
         } catch (Exception e) {
-            String reqId = (message != null && message.getRequesterId() != null) ? message.getRequesterId() : "unknown";
-            String lId = (message != null) ? message.getLobbyId() : null;
-            sendToUser(reqId, new LobbyResponse(false, e.getMessage(), lId, null));
+            sendToUser(message.getRequesterId(), new LobbyResponse(false, e.getMessage(), message.getLobbyId(), null));
         }
     }
 
     @MessageMapping("/lobby/setRole")
     public void handleSetRole(SetRoleMessage message) {
         try {
-            if (message == null) throw new IllegalArgumentException("Message is null");
             Lobby lobby = lobbyService.setRole(
                     message.getLobbyId(),
                     message.getRequesterId(),
@@ -188,16 +176,13 @@ public class WebSocketBrokerController {
             );
             broadcastToSpecificLobby(lobby.getId(), new LobbyResponse(true, "Role set", lobby.getId(), lobby));
         } catch (Exception e) {
-            String reqId = (message != null && message.getRequesterId() != null) ? message.getRequesterId() : "unknown";
-            String lId = (message != null) ? message.getLobbyId() : null;
-            sendToUser(reqId, new LobbyResponse(false, e.getMessage(), lId, null));
+            sendToUser(message.getRequesterId(), new LobbyResponse(false, e.getMessage(), message.getLobbyId(), null));
         }
     }
 
     @MessageMapping("/lobby/startRoleSelection")
     public void handleStartRoleSelection(StartRoleSelectionMessage message) {
         try {
-            if (message == null) throw new IllegalArgumentException("Message is null");
             Lobby lobby = lobbyService.getLobby(message.getLobbyId());
             if (lobby == null) throw new IllegalArgumentException("Lobby not found");
             if (!lobby.getHostId().equals(message.getRequesterId()))
@@ -206,16 +191,13 @@ public class WebSocketBrokerController {
             lobby.setLocked(true);
             broadcastToSpecificLobby(lobby.getId(), new LobbyResponse(true, "ROLE_SELECTION_STARTED", lobby.getId(), lobby));
         } catch (Exception e) {
-            String reqId = (message != null && message.getRequesterId() != null) ? message.getRequesterId() : "unknown";
-            String lId = (message != null) ? message.getLobbyId() : null;
-            sendToUser(reqId, new LobbyResponse(false, e.getMessage(), lId, null));
+            sendToUser(message.getRequesterId(), new LobbyResponse(false, e.getMessage(), message.getLobbyId(), null));
         }
     }
 
     @MessageMapping("/lobby/backToLobby")
     public void handleBackToLobby(BackToLobbyMessage message) {
         try {
-            if (message == null) throw new IllegalArgumentException("Message is null");
             Lobby lobby = lobbyService.getLobby(message.getLobbyId());
             if (lobby == null) throw new IllegalArgumentException("Lobby not found");
             if (!lobby.getHostId().equals(message.getRequesterId()))
@@ -224,19 +206,12 @@ public class WebSocketBrokerController {
             lobby.setLocked(false);
             broadcastToSpecificLobby(lobby.getId(), new LobbyResponse(true, "BACK_TO_LOBBY", lobby.getId(), lobby));
         } catch (Exception e) {
-            String reqId = (message != null && message.getRequesterId() != null) ? message.getRequesterId() : "unknown";
-            String lId = (message != null) ? message.getLobbyId() : null;
-            sendToUser(reqId, new LobbyResponse(false, e.getMessage(), lId, null));
+            sendToUser(message.getRequesterId(), new LobbyResponse(false, e.getMessage(), message.getLobbyId(), null));
         }
     }
 
     @MessageMapping("/game/{gameId}/move")
     public void handleMove(@DestinationVariable String gameId, @Payload MovementMessage movement) {
-        if (gameId == null) {
-            String pId = (movement != null && movement.getPlayerId() != null) ? movement.getPlayerId() : "unknown";
-            sendToUser(pId, new MovementResponse(false, "Game not found", 0, null));
-            return;
-        }
         if (movement == null) {
             sendMoveResponse(gameId, new MovementResponse(false, "NULL MESSAGE", 0, null));
             return;
