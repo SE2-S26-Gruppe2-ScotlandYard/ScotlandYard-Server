@@ -10,6 +10,7 @@ public class Lobby {
     private final String id;
     private String name;
     private boolean isStarted = false;
+    private boolean isLocked = false;
     private String hostId;
 
     // Using a Map for efficient user lookup by ID.
@@ -47,8 +48,8 @@ public class Lobby {
     }
 
     public void addUser(User user) {
-        if (isFull() || isStarted) {
-            throw new IllegalStateException("Lobby already started.");
+        if (isFull() || isStarted || isLocked) {
+            throw new IllegalStateException("Game is starting or already in progress");
         }
         users.put(user.id(), user);
         // A new user is never ready by default.
@@ -172,6 +173,14 @@ public class Lobby {
 
     public boolean isStarted() {
         return isStarted;
+    }
+
+    public boolean isLocked() {
+        return isLocked;
+    }
+
+    public void setLocked(boolean locked) {
+        isLocked = locked;
     }
 
     public String getHostId() {

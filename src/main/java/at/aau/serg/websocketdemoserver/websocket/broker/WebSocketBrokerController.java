@@ -1,15 +1,7 @@
 package at.aau.serg.websocketdemoserver.websocket.broker;
 
 import at.aau.serg.websocketdemoserver.dtos.StompMessage;
-import at.aau.serg.websocketdemoserver.dtos.lobby.CreateLobbyMessage;
-import at.aau.serg.websocketdemoserver.dtos.lobby.DeleteLobbyMessage;
-import at.aau.serg.websocketdemoserver.dtos.lobby.JoinLobbyMessage;
-import at.aau.serg.websocketdemoserver.dtos.lobby.KickPlayerMessage;
-import at.aau.serg.websocketdemoserver.dtos.lobby.LeaveLobbyMessage;
-import at.aau.serg.websocketdemoserver.dtos.lobby.LobbyResponse;
-import at.aau.serg.websocketdemoserver.dtos.lobby.SetRoleMessage;
-import at.aau.serg.websocketdemoserver.dtos.lobby.UserConnectMessage;
-import at.aau.serg.websocketdemoserver.dtos.lobby.UserConnectResponse;
+import at.aau.serg.websocketdemoserver.dtos.lobby.*;
 import at.aau.serg.websocketdemoserver.dtos.movement.MovementMessage;
 import at.aau.serg.websocketdemoserver.dtos.movement.MovementResponse;
 import at.aau.serg.websocketdemoserver.gamelogic.GameState;
@@ -21,12 +13,13 @@ import at.aau.serg.websocketdemoserver.lobby.User;
 import at.aau.serg.websocketdemoserver.service.GameController;
 import at.aau.serg.websocketdemoserver.service.LobbyService;
 import at.aau.serg.websocketdemoserver.service.UserService;
+import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.handler.annotation.SendTo;
+import org.springframework.messaging.simp.annotation.SendToUser;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
-import at.aau.serg.websocketdemoserver.dtos.lobby.StartRoleSelectionMessage;
 
 @Controller
 public class WebSocketBrokerController {
@@ -38,6 +31,33 @@ public class WebSocketBrokerController {
 
     public WebSocketBrokerController(SimpMessagingTemplate messagingTemplate) {
         this.messagingTemplate = messagingTemplate;
+    }
+
+    // 1. Private Antworten an den Auslöser über das dedizierte Player-Topic
+    private void sendToUser(String userId, Object payload) {
+        messagingTemplate.convertAndSend("/topic/player/" + userId, payload);
+    }
+
+    // 2. Globale Antworten (NUR für den Server-Browser: Erstellen & Löschen)
+    private void broadcastToGlobalLobbyList(LobbyResponse response) {
+        messagingTemplate.convertAndSend("/topic/lobby", response);
+    }
+
+    // 3. Isolierte Antworten (NUR für die Spieler, die physisch IN dieser Lobby sind)
+    private void broadcastToSpecificLobby(String lobbyId, LobbyResponse response) {
+        messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, response);
+    }
+
+    private void sendMoveResponse(String gameId, MovementResponse response) {
+        messagingTemplate.convertAndSend("/topic/game/" + gameId + "/move-response", response);
+    }
+
+    private void broadcastGameState(String gameId, GameState gameState) {
+        messagingTemplate.convertAndSend("/topic/game/" + gameId + "/movements", gameState);
+    }
+
+    private void broadcastGameOver(String gameId, String result) {
+        messagingTemplate.convertAndSend("/topic/game/" + gameId + "/over", result);
     }
 
     @MessageMapping("/hello")
@@ -52,8 +72,9 @@ public class WebSocketBrokerController {
         return msg;
     }
 
+    // Login läuft weiterhin über SendToUser (interne Session), das funktioniert zuverlässig
     @MessageMapping("/user/connect")
-    @SendTo("/topic/user-response")
+    @SendToUser("/topic/user-response")
     public UserConnectResponse handleUserConnect(UserConnectMessage message) {
         try {
             User user = userService.registerUser(message.getNickName());
@@ -70,9 +91,12 @@ public class WebSocketBrokerController {
         try {
             User host = new User(message.getUserId(), message.getNickName());
             Lobby lobby = lobbyService.createLobby(message.getLobbyName(), host);
-            broadcast(new LobbyResponse(true, "Lobby created", lobby.getId(), lobby));
+            LobbyResponse response = new LobbyResponse(true, message.getNickName() +  "'s Lobby created", lobby.getId(), lobby);
+
+            sendToUser(message.getUserId(), response);
+            broadcastToGlobalLobbyList(response);
         } catch (Exception e) {
-            broadcast(new LobbyResponse(false, e.getMessage(), null, null));
+            sendToUser(message.getUserId(), new LobbyResponse(false, e.getMessage(), null, null));
         }
     }
 
@@ -81,48 +105,87 @@ public class WebSocketBrokerController {
         try {
             User user = new User(message.getUserId(), message.getNickName());
             Lobby lobby = lobbyService.joinLobby(message.getLobbyId(), user);
-            broadcast(new LobbyResponse(true, "Joined lobby", lobby.getId(), lobby));
+            String hostName = lobby.getHost().nickName();
+            String responseMessage = message.getNickName() + " joined " + hostName + "'s Lobby";
+            LobbyResponse response = new LobbyResponse(true, responseMessage, lobby.getId(), lobby);
+
+            sendToUser(message.getUserId(), response);
+            broadcastToSpecificLobby(lobby.getId(), response);
         } catch (Exception e) {
-            broadcast(new LobbyResponse(false, e.getMessage(), null, null));
+            sendToUser(message.getUserId(), new LobbyResponse(false, e.getMessage(), message.getLobbyId(), null));
         }
     }
 
     @MessageMapping("/lobby/leave")
     public void handleLeaveLobby(LeaveLobbyMessage message) {
         try {
+            Lobby lobbyBefore = lobbyService.getLobby(message.getLobbyId());
+            User leavingUser = (lobbyBefore != null) ? lobbyBefore.getUsers().stream()
+                    .filter(u -> u.id().equals(message.getUserId()))
+                    .findFirst().orElse(null) : null;
+            String leavingUserName = (leavingUser != null) ? leavingUser.nickName() : "Unknown";
+            String hostNameBefore = (lobbyBefore != null && lobbyBefore.getHost() != null) ? lobbyBefore.getHost().nickName() : "Unknown";
+
             lobbyService.leaveLobby(message.getLobbyId(), message.getUserId());
             Lobby updatedLobby = lobbyService.getLobby(message.getLobbyId());
+
             if (updatedLobby == null) {
-                broadcast(new LobbyResponse(true, "Lobby deleted (empty)", message.getLobbyId(), null));
+                String responseMessage = leavingUserName + " left " + hostNameBefore + "'s Lobby (Lobby is now empty)";
+                LobbyResponse response = new LobbyResponse(true, responseMessage, message.getLobbyId(), null);
+                sendToUser(message.getUserId(), response);
+                broadcastToGlobalLobbyList(response);
             } else {
-                broadcast(new LobbyResponse(true, "Left lobby", updatedLobby.getId(), updatedLobby));
+                String hostNameAfter = updatedLobby.getHost().nickName();
+                String responseMessage = leavingUserName + " left " + hostNameAfter + "'s Lobby";
+                LobbyResponse response = new LobbyResponse(true, responseMessage, updatedLobby.getId(), updatedLobby);
+                sendToUser(message.getUserId(), response);
+                broadcastToSpecificLobby(updatedLobby.getId(), response);
             }
         } catch (Exception e) {
-            broadcast(new LobbyResponse(false, e.getMessage(), null, null));
+            sendToUser(message.getUserId(), new LobbyResponse(false, e.getMessage(), message.getLobbyId(), null));
         }
     }
 
     @MessageMapping("/lobby/delete")
     public void handleDeleteLobby(DeleteLobbyMessage message) {
         try {
+            Lobby lobbyBefore = lobbyService.getLobby(message.getLobbyId());
+            String hostName = (lobbyBefore != null && lobbyBefore.getHost() != null) ? lobbyBefore.getHost().nickName() : "Unknown";
+
             lobbyService.deleteLobby(message.getLobbyId(), message.getRequesterId());
-            broadcast(new LobbyResponse(true, "Lobby deleted", message.getLobbyId(), null));
+            String responseMessage = hostName + " deleted the Lobby";
+            LobbyResponse response = new LobbyResponse(true, responseMessage, message.getLobbyId(), null);
+
+            sendToUser(message.getRequesterId(), response);
+            broadcastToSpecificLobby(message.getLobbyId(), response);
+            broadcastToGlobalLobbyList(response);
         } catch (Exception e) {
-            broadcast(new LobbyResponse(false, e.getMessage(), null, null));
+            sendToUser(message.getRequesterId(), new LobbyResponse(false, e.getMessage(), message.getLobbyId(), null));
         }
     }
 
     @MessageMapping("/lobby/kick")
     public void handleKickPlayer(KickPlayerMessage message) {
         try {
+            Lobby lobbyBefore = lobbyService.getLobby(message.getLobbyId());
+            User targetUser = lobbyBefore.getUsers().stream()
+                    .filter(u -> u.id().equals(message.getTargetUserId()))
+                    .findFirst().orElse(null);
+            String targetNickName = (targetUser != null) ? targetUser.nickName() : "Unknown";
+
             Lobby lobby = lobbyService.kickPlayer(
                     message.getLobbyId(),
                     message.getRequesterId(),
                     message.getTargetUserId()
             );
-            broadcast(new LobbyResponse(true, "Player kicked", lobby.getId(), lobby));
+            String hostName = lobby.getHost().nickName();
+            String responseMessage = targetNickName + " was kicked out of " + hostName + "'s Lobby";
+            LobbyResponse response = new LobbyResponse(true, responseMessage, lobby.getId(), lobby);
+
+            sendToUser(message.getTargetUserId(), response);
+            broadcastToSpecificLobby(lobby.getId(), response);
         } catch (Exception e) {
-            broadcast(new LobbyResponse(false, e.getMessage(), null, null));
+            sendToUser(message.getRequesterId(), new LobbyResponse(false, e.getMessage(), message.getLobbyId(), null));
         }
     }
 
@@ -135,9 +198,14 @@ public class WebSocketBrokerController {
                     message.getTargetUserId(),
                     message.getRole()
             );
-            broadcast(new LobbyResponse(true, "Role set", lobby.getId(), lobby));
+            User targetUser = lobby.getUsers().stream()
+                    .filter(u -> u.id().equals(message.getTargetUserId()))
+                    .findFirst().orElse(null);
+            String targetNickName = (targetUser != null) ? targetUser.nickName() : "Unknown";
+            String responseMessage = targetNickName + " selected role " + message.getRole();
+            broadcastToSpecificLobby(lobby.getId(), new LobbyResponse(true, responseMessage, lobby.getId(), lobby));
         } catch (Exception e) {
-            broadcast(new LobbyResponse(false, e.getMessage(), null, null));
+            sendToUser(message.getRequesterId(), new LobbyResponse(false, e.getMessage(), message.getLobbyId(), null));
         }
     }
 
@@ -148,37 +216,62 @@ public class WebSocketBrokerController {
             if (lobby == null) throw new IllegalArgumentException("Lobby not found");
             if (!lobby.getHostId().equals(message.getRequesterId()))
                 throw new IllegalStateException("Only host can start role selection");
-            // Nutze isStarted als Signal für Rollenwahl-Phase
-            broadcast(new LobbyResponse(true, "ROLE_SELECTION_STARTED", lobby.getId(), lobby));
+
+            lobby.setLocked(true);
+            String hostName = lobby.getHost().nickName();
+            String responseMessage = hostName + " started role selection";
+            LobbyResponse response = new LobbyResponse(true, responseMessage, lobby.getId(), lobby);
+
+            sendToUser(message.getRequesterId(), response);
+            broadcastToSpecificLobby(lobby.getId(), response);
         } catch (Exception e) {
-            broadcast(new LobbyResponse(false, e.getMessage(), null, null));
+            sendToUser(message.getRequesterId(), new LobbyResponse(false, e.getMessage(), message.getLobbyId(), null));
         }
     }
 
-    private void broadcast(LobbyResponse response) {
-        messagingTemplate.convertAndSend("/topic/lobby", response);
+    @MessageMapping("/lobby/backToLobby")
+    public void handleBackToLobby(BackToLobbyMessage message) {
+        try {
+            Lobby lobby = lobbyService.getLobby(message.getLobbyId());
+            if (lobby == null) throw new IllegalArgumentException("Lobby not found");
+            if (!lobby.getHostId().equals(message.getRequesterId()))
+                throw new IllegalStateException("Only host can go back to lobby");
+
+            lobby.setLocked(false);
+            String hostName = lobby.getHost().nickName();
+            String responseMessage = hostName + " returned to Lobby";
+            LobbyResponse response = new LobbyResponse(true, responseMessage, lobby.getId(), lobby);
+
+            sendToUser(message.getRequesterId(), response);
+            broadcastToSpecificLobby(lobby.getId(), response);
+        } catch (Exception e) {
+            sendToUser(message.getRequesterId(), new LobbyResponse(false, e.getMessage(), message.getLobbyId(), null));
+        }
     }
 
-    @MessageMapping("/move")
-    @SendTo("/topic/move-response")
-    public MovementResponse handleMove(@Payload MovementMessage movement) {
+    @MessageMapping("/game/{gameId}/move")
+    public void handleMove(@DestinationVariable String gameId, @Payload MovementMessage movement) {
         if (movement == null) {
-            return new MovementResponse(false, "NULL MESSAGE", 0, null);
+            sendMoveResponse(gameId, new MovementResponse(false, "NULL MESSAGE", 0, null));
+            return;
         }
-        if (movement.getGameId() == null || movement.getPlayerId() == null) {
-            return new MovementResponse(false, "Invalid movement data", 0, null);
+        if (movement.getPlayerId() == null) {
+            sendMoveResponse(gameId, new MovementResponse(false, "Invalid movement data: No player ID", 0, null));
+            return;
         }
 
-        GameState gameState = gameController.getGame(movement.getGameId());
+        GameState gameState = gameController.getGame(gameId);
 
         try {
             if (gameState == null) {
-                return new MovementResponse(false, "Game not found", 0, null);
+                sendToUser(movement.getPlayerId(), new MovementResponse(false, "Game not found", 0, null));
+                return;
             }
 
             Integer playerPosition = gameState.getPlayerPosition(movement.getPlayerId());
             if (playerPosition == null) {
-                return new MovementResponse(false, "Invalid movement data", 0, null);
+                sendToUser(movement.getPlayerId(), new MovementResponse(false, "Invalid movement data", 0, null));
+                return;
             }
 
             boolean isMrX = gameState.getPlayer(movement.getPlayerId()) != null
@@ -187,63 +280,72 @@ public class WebSocketBrokerController {
             TurnType phase = gameState.getCurrentPhase();
 
             if (isMrX && phase != TurnType.MRX) {
-                return new MovementResponse(false, "Not Mr. X's turn", playerPosition, null);
+                sendToUser(movement.getPlayerId(), new MovementResponse(false, "Not Mr. X's turn", playerPosition, null));
+                return;
             }
             if (!isMrX && phase != TurnType.DETECTIVES) {
-                return new MovementResponse(false, "Not the detectives' turn", playerPosition, null);
+                sendToUser(movement.getPlayerId(), new MovementResponse(false, "Not the detectives' turn", playerPosition, null));
+                return;
             }
             if (!isMrX && !gameState.getRoundController().isDetectivePending(movement.getPlayerId())) {
-                return new MovementResponse(false, "Detective has already moved this round", playerPosition, null);
+                sendToUser(movement.getPlayerId(), new MovementResponse(false, "Detective has already moved this round", playerPosition, null));
+                return;
             }
 
             if (movement.getTicket() == TicketType.DOUBLE) {
                 boolean success = gameState.activateDoubleMove();
                 if (!success) {
                     Player player = gameState.getPlayer(movement.getPlayerId());
-                    if (!player.isMrX()) return new MovementResponse(false, "Only Mr. X can use the DOUBLE ticket", playerPosition, null);
-                    if (!player.hasTicket(TicketType.DOUBLE)) return new MovementResponse(false, "No DOUBLE tickets remaining", playerPosition, null);
-                    if (gameState.getRoundController().isDoubleMoveActive()) return new MovementResponse(false, "Double move is already in use", playerPosition, null);
-                    return new MovementResponse(false, "Cannot activate double move ticket", playerPosition, null);
+                    if (!player.isMrX()) {
+                        sendToUser(movement.getPlayerId(), new MovementResponse(false, "Only Mr. X can use the DOUBLE ticket", playerPosition, null));
+                        return;
+                    }
+                    if (!player.hasTicket(TicketType.DOUBLE)) {
+                        sendToUser(movement.getPlayerId(), new MovementResponse(false, "No DOUBLE tickets remaining", playerPosition, null));
+                        return;
+                    }
+                    if (gameState.getRoundController().isDoubleMoveActive()) {
+                        sendToUser(movement.getPlayerId(), new MovementResponse(false, "Double move is already in use", playerPosition, null));
+                        return;
+                    }
+                    sendToUser(movement.getPlayerId(), new MovementResponse(false, "Cannot activate double move ticket", playerPosition, null));
+                    return;
                 }
-                broadcastGameState(movement.getGameId(), gameState);
-                return new MovementResponse(true, "Double move ticket activated", playerPosition, null);
+                broadcastGameState(gameId, gameState);
+                sendMoveResponse(gameId, new MovementResponse(true, "Double move ticket activated", playerPosition, null));
+                return;
             }
 
             boolean success = gameState.movePlayer(movement.getPlayerId(), movement.getTicket(), movement.getTargetPosition());
-            broadcastGameState(movement.getGameId(), gameState);
+            broadcastGameState(gameId, gameState);
 
             if (!success) {
-                return new MovementResponse(false, "Invalid move", gameState.getPlayerPosition(movement.getPlayerId()), null);
+                sendToUser(movement.getPlayerId(), new MovementResponse(false, "Invalid move", gameState.getPlayerPosition(movement.getPlayerId()), null));
+                return;
             }
 
             switch (gameState.checkGameResult()) {
                 case DETECTIVES_WIN -> {
-                    broadcastGameState(movement.getGameId(), gameState);
-                    broadcastGameOver(movement.getGameId(), "DETECTIVES_WIN");
-                    return new MovementResponse(true, "Movement successful: Detectives win!", gameState.getPlayerPosition(movement.getPlayerId()), null);
+                    broadcastGameState(gameId, gameState);
+                    broadcastGameOver(gameId, "DETECTIVES_WIN");
+                    sendMoveResponse(gameId, new MovementResponse(true, "Movement successful: Detectives win!", gameState.getPlayerPosition(movement.getPlayerId()), null));
+                    return;
                 }
                 case MRX_WINS -> {
-                    broadcastGameState(movement.getGameId(), gameState);
-                    broadcastGameOver(movement.getGameId(), "MRX_WINS");
-                    return new MovementResponse(true, "Movement successful: Mr. X wins!", gameState.getPlayerPosition(movement.getPlayerId()), null);
+                    broadcastGameState(gameId, gameState);
+                    broadcastGameOver(gameId, "MRX_WINS");
+                    sendMoveResponse(gameId, new MovementResponse(true, "Movement successful: Mr. X wins!", gameState.getPlayerPosition(movement.getPlayerId()), null));
+                    return;
                 }
             }
 
             String extra = (isMrX && gameState.getRoundController().isDoubleMoveActive())
                     ? " (1 move remaining due to double move ticket)" : "";
 
-            return new MovementResponse(true, "Movement successful" + extra, gameState.getPlayerPosition(movement.getPlayerId()), null);
+            sendMoveResponse(gameId, new MovementResponse(true, "Movement successful" + extra, gameState.getPlayerPosition(movement.getPlayerId()), null));
 
         } catch (Exception e) {
-            return new MovementResponse(false, "Error: " + e.getMessage(), 0, null);
+            sendToUser(movement.getPlayerId(), new MovementResponse(false, "Error: " + e.getMessage(), 0, null));
         }
-    }
-
-    private void broadcastGameState(String gameId, GameState gameState) {
-        messagingTemplate.convertAndSend("/topic/game/" + gameId, gameState);
-    }
-
-    private void broadcastGameOver(String gameId, String result) {
-        messagingTemplate.convertAndSend("/topic/game/" + gameId + "/over", result);
     }
 }
