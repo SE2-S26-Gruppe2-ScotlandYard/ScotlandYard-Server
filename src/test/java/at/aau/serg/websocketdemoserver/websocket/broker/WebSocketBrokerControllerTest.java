@@ -35,16 +35,12 @@ class WebSocketBrokerControllerTest {
         controller = new WebSocketBrokerController(messagingTemplate);
     }
 
-    // ── Bestehende Tests (angepasst) ──────────────────────────────────────
-
     @Test
     void testHandleUserConnect() {
         WebSocketBrokerController noMsgController = new WebSocketBrokerController(messagingTemplate);
         UserConnectMessage message = new UserConnectMessage();
         message.setNickName("Stefan");
-
         UserConnectResponse response = noMsgController.handleUserConnect(message);
-
         assertTrue(response.isSuccess());
         assertEquals("User registered", response.getMessage());
         assertNotNull(response.getUser().id());
@@ -66,45 +62,48 @@ class WebSocketBrokerControllerTest {
         assertEquals("Hallo", response.getText());
     }
 
+    // ── Bewegungstests (unverändert) ───────────────────────────
     @Test
-    void testHandleMoveReturnsInvalidWhenGameIdIsNull() {
-        MovementMessage message = new MovementMessage();
-        message.setGameId(null);
-        message.setPlayerId("player-1");
-        message.setTicket(TicketType.WALKING);
-        message.setTargetPosition(42);
-
-        MovementResponse response = controller.handleMove(message);
-
-        assertFalse(response.isSuccess());
-        assertEquals("Invalid movement data", response.getMessage());
+    void testHandleMove_NullMovement() {
+        controller.handleMove("game1", null);
+        verify(messagingTemplate).convertAndSend(
+                eq("/topic/game/game1/move-response"),
+                argThat((MovementResponse r) -> !r.isSuccess() && "NULL MESSAGE".equals(r.getMessage()))
+        );
     }
 
     @Test
-    void testHandleMoveReturnsGameNotFound() {
-        MovementMessage message = new MovementMessage();
-        message.setGameId("unknown-game");
-        message.setPlayerId("player-1");
-        message.setTicket(TicketType.WALKING);
-        message.setTargetPosition(42);
-
-        MovementResponse response = controller.handleMove(message);
-
-        assertFalse(response.isSuccess());
-        assertEquals("Game not found", response.getMessage());
+    void testHandleMove_NullPlayerId() {
+        MovementMessage msg = new MovementMessage();
+        msg.setGameId("game1");
+        msg.setPlayerId(null);
+        controller.handleMove("game1", msg);
+        verify(messagingTemplate).convertAndSend(
+                eq("/topic/game/game1/move-response"),
+                argThat((MovementResponse r) -> !r.isSuccess() && r.getMessage().contains("No player ID"))
+        );
     }
 
-    // ── NEUE Tests: Lobby Endpunkte via messagingTemplate ─────────────────
+    @Test
+    void testHandleMove_GameNotFound() {
+        MovementMessage msg = new MovementMessage();
+        msg.setGameId("unknown");
+        msg.setPlayerId("p1");
+        controller.handleMove("unknown", msg);
+        verify(messagingTemplate).convertAndSend(
+                eq("/topic/player/p1"),
+                argThat((MovementResponse r) -> !r.isSuccess() && "Game not found".equals(r.getMessage()))
+        );
+    }
 
+    // ── Lobby Tests (angepasste Messages) ─────────────────────
     @Test
     void testHandleCreateLobby_broadcastsToTopic() {
         CreateLobbyMessage message = new CreateLobbyMessage();
         message.setLobbyName("TestLobby");
         message.setUserId("1");
         message.setNickName("Host");
-
         controller.handleCreateLobby(message);
-
         verify(messagingTemplate).convertAndSend(
                 eq("/topic/lobby"),
                 any(LobbyResponse.class)
@@ -117,47 +116,32 @@ class WebSocketBrokerControllerTest {
         message.setLobbyName("TestLobby");
         message.setUserId("1");
         message.setNickName("Host");
-
         controller.handleCreateLobby(message);
-
         verify(messagingTemplate).convertAndSend(
                 eq("/topic/lobby"),
                 argThat((LobbyResponse r) -> r.isSuccess()
-                        && "Lobby created".equals(r.getMessage())
+                        && "Host's Lobby created".equals(r.getMessage())
                         && r.getLobby() != null
                         && "TestLobby".equals(r.getLobby().getName()))
         );
     }
 
     @Test
-    void testHandleCreateLobby_broadcastsErrorOnException() {
-        controller.handleCreateLobby(null);
-
-        verify(messagingTemplate).convertAndSend(
-                eq("/topic/lobby"),
-                argThat((LobbyResponse r) -> !r.isSuccess())
-        );
-    }
-
-    @Test
     void testHandleJoinLobby_broadcastsSuccess() {
-        // Erst Lobby erstellen
         CreateLobbyMessage createMsg = new CreateLobbyMessage("TestLobby", "1", "Host");
         controller.handleCreateLobby(createMsg);
 
-        // LobbyId aus dem Broadcast holen
         var lobbyIdCaptor = org.mockito.ArgumentCaptor.forClass(LobbyResponse.class);
         verify(messagingTemplate, atLeastOnce()).convertAndSend(eq("/topic/lobby"), lobbyIdCaptor.capture());
         String lobbyId = lobbyIdCaptor.getValue().getLobbyId();
 
-        // Beitreten
         JoinLobbyMessage joinMsg = new JoinLobbyMessage(lobbyId, "2", "Player");
         controller.handleJoinLobby(joinMsg);
 
         verify(messagingTemplate, atLeastOnce()).convertAndSend(
-                eq("/topic/lobby"),
+                eq("/topic/lobby/" + lobbyId),
                 argThat((LobbyResponse r) -> r.isSuccess()
-                        && "Joined lobby".equals(r.getMessage())
+                        && "Player joined Host's Lobby".equals(r.getMessage())
                         && r.getLobby() != null
                         && r.getLobby().getUsers().size() == 2)
         );
@@ -167,25 +151,26 @@ class WebSocketBrokerControllerTest {
     void testHandleJoinLobby_broadcastsErrorWhenLobbyNotFound() {
         JoinLobbyMessage message = new JoinLobbyMessage("missing-lobby", "2", "Player");
         controller.handleJoinLobby(message);
-
         verify(messagingTemplate).convertAndSend(
-                eq("/topic/lobby"),
-                argThat((LobbyResponse r) -> !r.isSuccess()
-                        && "Lobby not found".equals(r.getMessage()))
+                eq("/topic/player/2"),
+                argThat((LobbyResponse r) -> !r.isSuccess() && "Lobby not found".equals(r.getMessage()))
         );
     }
 
     @Test
-    void testHandleJoinLobby_broadcastsErrorOnException() {
-        controller.handleJoinLobby(null);
-        verify(messagingTemplate).convertAndSend(eq("/topic/lobby"), argThat((LobbyResponse r) -> !r.isSuccess()));
+    void testHandleJoinLobby_broadcastsErrorOnInvalidUser() {
+        JoinLobbyMessage message = new JoinLobbyMessage("someId", null, "Player");
+        controller.handleJoinLobby(message);
+        verify(messagingTemplate).convertAndSend(
+                eq("/topic/player/null"),
+                argThat((LobbyResponse r) -> !r.isSuccess())
+        );
     }
 
     @Test
     void testHandleLeaveLobby_broadcastsSuccess() {
         CreateLobbyMessage createMsg = new CreateLobbyMessage("TestLobby", "1", "Host");
         controller.handleCreateLobby(createMsg);
-
         var captor = org.mockito.ArgumentCaptor.forClass(LobbyResponse.class);
         verify(messagingTemplate, atLeastOnce()).convertAndSend(eq("/topic/lobby"), captor.capture());
         String lobbyId = captor.getValue().getLobbyId();
@@ -197,8 +182,8 @@ class WebSocketBrokerControllerTest {
         controller.handleLeaveLobby(leaveMsg);
 
         verify(messagingTemplate, atLeastOnce()).convertAndSend(
-                eq("/topic/lobby"),
-                argThat((LobbyResponse r) -> r.isSuccess() && "Left lobby".equals(r.getMessage()))
+                eq("/topic/lobby/" + lobbyId),
+                argThat((LobbyResponse r) -> r.isSuccess() && "Player left Host's Lobby".equals(r.getMessage()))
         );
     }
 
@@ -206,7 +191,6 @@ class WebSocketBrokerControllerTest {
     void testHandleLeaveLobby_deletesEmptyLobby() {
         CreateLobbyMessage createMsg = new CreateLobbyMessage("TestLobby", "1", "Host");
         controller.handleCreateLobby(createMsg);
-
         var captor = org.mockito.ArgumentCaptor.forClass(LobbyResponse.class);
         verify(messagingTemplate, atLeastOnce()).convertAndSend(eq("/topic/lobby"), captor.capture());
         String lobbyId = captor.getValue().getLobbyId();
@@ -217,22 +201,25 @@ class WebSocketBrokerControllerTest {
         verify(messagingTemplate, atLeastOnce()).convertAndSend(
                 eq("/topic/lobby"),
                 argThat((LobbyResponse r) -> r.isSuccess()
-                        && "Lobby deleted (empty)".equals(r.getMessage())
+                        && "Host left Host's Lobby (Lobby is now empty)".equals(r.getMessage())
                         && r.getLobby() == null)
         );
     }
 
     @Test
-    void testHandleLeaveLobby_broadcastsErrorOnException() {
-        controller.handleLeaveLobby(null);
-        verify(messagingTemplate).convertAndSend(eq("/topic/lobby"), argThat((LobbyResponse r) -> !r.isSuccess()));
+    void testHandleLeaveLobby_broadcastsErrorWhenLobbyNotFound() {
+        LeaveLobbyMessage message = new LeaveLobbyMessage("missing", "1");
+        controller.handleLeaveLobby(message);
+        verify(messagingTemplate).convertAndSend(
+                eq("/topic/player/1"),
+                argThat((LobbyResponse r) -> !r.isSuccess())
+        );
     }
 
     @Test
     void testHandleDeleteLobby_broadcastsSuccess() {
         CreateLobbyMessage createMsg = new CreateLobbyMessage("TestLobby", "1", "Host");
         controller.handleCreateLobby(createMsg);
-
         var captor = org.mockito.ArgumentCaptor.forClass(LobbyResponse.class);
         verify(messagingTemplate, atLeastOnce()).convertAndSend(eq("/topic/lobby"), captor.capture());
         String lobbyId = captor.getValue().getLobbyId();
@@ -242,7 +229,7 @@ class WebSocketBrokerControllerTest {
 
         verify(messagingTemplate, atLeastOnce()).convertAndSend(
                 eq("/topic/lobby"),
-                argThat((LobbyResponse r) -> r.isSuccess() && "Lobby deleted".equals(r.getMessage()))
+                argThat((LobbyResponse r) -> r.isSuccess() && "Host deleted the Lobby".equals(r.getMessage()))
         );
     }
 
@@ -250,7 +237,6 @@ class WebSocketBrokerControllerTest {
     void testHandleDeleteLobby_failsForNonHost() {
         CreateLobbyMessage createMsg = new CreateLobbyMessage("TestLobby", "1", "Host");
         controller.handleCreateLobby(createMsg);
-
         var captor = org.mockito.ArgumentCaptor.forClass(LobbyResponse.class);
         verify(messagingTemplate, atLeastOnce()).convertAndSend(eq("/topic/lobby"), captor.capture());
         String lobbyId = captor.getValue().getLobbyId();
@@ -258,25 +244,27 @@ class WebSocketBrokerControllerTest {
         DeleteLobbyMessage deleteMsg = new DeleteLobbyMessage(lobbyId, "999");
         controller.handleDeleteLobby(deleteMsg);
 
-        verify(messagingTemplate, atLeastOnce()).convertAndSend(
-                eq("/topic/lobby"),
+        verify(messagingTemplate).convertAndSend(
+                eq("/topic/player/999"),
                 argThat((LobbyResponse r) -> !r.isSuccess())
         );
     }
 
     @Test
-    void testHandleDeleteLobby_broadcastsErrorOnException() {
-        controller.handleDeleteLobby(null);
-        verify(messagingTemplate).convertAndSend(eq("/topic/lobby"), argThat((LobbyResponse r) -> !r.isSuccess()));
+    void testHandleDeleteLobby_broadcastsErrorWhenLobbyNotFound() {
+        DeleteLobbyMessage message = new DeleteLobbyMessage("missing", "1");
+        controller.handleDeleteLobby(message);
+        verify(messagingTemplate).convertAndSend(
+                eq("/topic/player/1"),
+                argThat((LobbyResponse r) -> !r.isSuccess())
+        );
     }
 
-    // ── NEUE Tests: KickPlayer ─────────────────────────────────────────────
-
+    // ── KickPlayer ────────────────────────────────────────────
     @Test
     void testHandleKickPlayer_success() {
         CreateLobbyMessage createMsg = new CreateLobbyMessage("TestLobby", "1", "Host");
         controller.handleCreateLobby(createMsg);
-
         var captor = org.mockito.ArgumentCaptor.forClass(LobbyResponse.class);
         verify(messagingTemplate, atLeastOnce()).convertAndSend(eq("/topic/lobby"), captor.capture());
         String lobbyId = captor.getValue().getLobbyId();
@@ -288,9 +276,9 @@ class WebSocketBrokerControllerTest {
         controller.handleKickPlayer(kickMsg);
 
         verify(messagingTemplate, atLeastOnce()).convertAndSend(
-                eq("/topic/lobby"),
+                eq("/topic/lobby/" + lobbyId),
                 argThat((LobbyResponse r) -> r.isSuccess()
-                        && "Player kicked".equals(r.getMessage())
+                        && "Player was kicked out of Host's Lobby".equals(r.getMessage())
                         && r.getLobby() != null
                         && r.getLobby().getUsers().size() == 1)
         );
@@ -300,7 +288,6 @@ class WebSocketBrokerControllerTest {
     void testHandleKickPlayer_failsForNonHost() {
         CreateLobbyMessage createMsg = new CreateLobbyMessage("TestLobby", "1", "Host");
         controller.handleCreateLobby(createMsg);
-
         var captor = org.mockito.ArgumentCaptor.forClass(LobbyResponse.class);
         verify(messagingTemplate, atLeastOnce()).convertAndSend(eq("/topic/lobby"), captor.capture());
         String lobbyId = captor.getValue().getLobbyId();
@@ -308,40 +295,40 @@ class WebSocketBrokerControllerTest {
         JoinLobbyMessage joinMsg = new JoinLobbyMessage(lobbyId, "2", "Player");
         controller.handleJoinLobby(joinMsg);
 
-        // Player 2 versucht Host zu kicken
         KickPlayerMessage kickMsg = new KickPlayerMessage(lobbyId, "2", "1");
         controller.handleKickPlayer(kickMsg);
 
-        verify(messagingTemplate, atLeastOnce()).convertAndSend(
-                eq("/topic/lobby"),
+        verify(messagingTemplate).convertAndSend(
+                eq("/topic/player/2"),
                 argThat((LobbyResponse r) -> !r.isSuccess())
         );
     }
 
     @Test
-    void testHandleKickPlayer_broadcastsErrorOnException() {
-        controller.handleKickPlayer(null);
-        verify(messagingTemplate).convertAndSend(eq("/topic/lobby"), argThat((LobbyResponse r) -> !r.isSuccess()));
+    void testHandleKickPlayer_broadcastsErrorWhenLobbyNotFound() {
+        KickPlayerMessage msg = new KickPlayerMessage("missing", "1", "2");
+        controller.handleKickPlayer(msg);
+        verify(messagingTemplate).convertAndSend(
+                eq("/topic/player/1"),
+                argThat((LobbyResponse r) -> !r.isSuccess())
+        );
     }
 
-    // ── NEUE Tests: SetRole ────────────────────────────────────────────────
-
+    // ── SetRole ───────────────────────────────────────────────
     @Test
     void testHandleSetRole_playerSetsOwnRole() {
         CreateLobbyMessage createMsg = new CreateLobbyMessage("TestLobby", "1", "Host");
         controller.handleCreateLobby(createMsg);
-
         var captor = org.mockito.ArgumentCaptor.forClass(LobbyResponse.class);
         verify(messagingTemplate, atLeastOnce()).convertAndSend(eq("/topic/lobby"), captor.capture());
         String lobbyId = captor.getValue().getLobbyId();
 
-        // Spieler setzt seine eigene Rolle
         SetRoleMessage roleMsg = new SetRoleMessage(lobbyId, "1", "1", "MRX");
         controller.handleSetRole(roleMsg);
 
         verify(messagingTemplate, atLeastOnce()).convertAndSend(
-                eq("/topic/lobby"),
-                argThat((LobbyResponse r) -> r.isSuccess() && "Role set".equals(r.getMessage()))
+                eq("/topic/lobby/" + lobbyId),
+                argThat((LobbyResponse r) -> r.isSuccess() && "Host selected role MRX".equals(r.getMessage()))
         );
     }
 
@@ -349,7 +336,6 @@ class WebSocketBrokerControllerTest {
     void testHandleSetRole_failsWhenSettingOtherPlayerRole() {
         CreateLobbyMessage createMsg = new CreateLobbyMessage("TestLobby", "1", "Host");
         controller.handleCreateLobby(createMsg);
-
         var captor = org.mockito.ArgumentCaptor.forClass(LobbyResponse.class);
         verify(messagingTemplate, atLeastOnce()).convertAndSend(eq("/topic/lobby"), captor.capture());
         String lobbyId = captor.getValue().getLobbyId();
@@ -357,29 +343,30 @@ class WebSocketBrokerControllerTest {
         JoinLobbyMessage joinMsg = new JoinLobbyMessage(lobbyId, "2", "Player");
         controller.handleJoinLobby(joinMsg);
 
-        // Spieler 1 versucht Rolle von Spieler 2 zu setzen
         SetRoleMessage roleMsg = new SetRoleMessage(lobbyId, "1", "2", "DETECTIVE");
         controller.handleSetRole(roleMsg);
 
-        verify(messagingTemplate, atLeastOnce()).convertAndSend(
-                eq("/topic/lobby"),
+        verify(messagingTemplate).convertAndSend(
+                eq("/topic/player/1"),
                 argThat((LobbyResponse r) -> !r.isSuccess())
         );
     }
 
     @Test
-    void testHandleSetRole_broadcastsErrorOnException() {
-        controller.handleSetRole(null);
-        verify(messagingTemplate).convertAndSend(eq("/topic/lobby"), argThat((LobbyResponse r) -> !r.isSuccess()));
+    void testHandleSetRole_broadcastsErrorWhenLobbyNotFound() {
+        SetRoleMessage msg = new SetRoleMessage("missing", "1", "1", "MRX");
+        controller.handleSetRole(msg);
+        verify(messagingTemplate).convertAndSend(
+                eq("/topic/player/1"),
+                argThat((LobbyResponse r) -> !r.isSuccess())
+        );
     }
 
-    // ── NEUE Tests: StartRoleSelection ────────────────────────────────────
-
+    // ── StartRoleSelection ───────────────────────────────────
     @Test
     void testHandleStartRoleSelection_hostCanStart() {
         CreateLobbyMessage createMsg = new CreateLobbyMessage("TestLobby", "1", "Host");
         controller.handleCreateLobby(createMsg);
-
         var captor = org.mockito.ArgumentCaptor.forClass(LobbyResponse.class);
         verify(messagingTemplate, atLeastOnce()).convertAndSend(eq("/topic/lobby"), captor.capture());
         String lobbyId = captor.getValue().getLobbyId();
@@ -388,9 +375,9 @@ class WebSocketBrokerControllerTest {
         controller.handleStartRoleSelection(msg);
 
         verify(messagingTemplate, atLeastOnce()).convertAndSend(
-                eq("/topic/lobby"),
+                eq("/topic/lobby/" + lobbyId),
                 argThat((LobbyResponse r) -> r.isSuccess()
-                        && "ROLE_SELECTION_STARTED".equals(r.getMessage()))
+                        && "Host started role selection".equals(r.getMessage()))
         );
     }
 
@@ -398,7 +385,6 @@ class WebSocketBrokerControllerTest {
     void testHandleStartRoleSelection_failsForNonHost() {
         CreateLobbyMessage createMsg = new CreateLobbyMessage("TestLobby", "1", "Host");
         controller.handleCreateLobby(createMsg);
-
         var captor = org.mockito.ArgumentCaptor.forClass(LobbyResponse.class);
         verify(messagingTemplate, atLeastOnce()).convertAndSend(eq("/topic/lobby"), captor.capture());
         String lobbyId = captor.getValue().getLobbyId();
@@ -409,16 +395,20 @@ class WebSocketBrokerControllerTest {
         StartRoleSelectionMessage msg = new StartRoleSelectionMessage(lobbyId, "2");
         controller.handleStartRoleSelection(msg);
 
-        verify(messagingTemplate, atLeastOnce()).convertAndSend(
-                eq("/topic/lobby"),
+        verify(messagingTemplate).convertAndSend(
+                eq("/topic/player/2"),
                 argThat((LobbyResponse r) -> !r.isSuccess())
         );
     }
 
     @Test
-    void testHandleStartRoleSelection_broadcastsErrorOnException() {
-        controller.handleStartRoleSelection(null);
-        verify(messagingTemplate).convertAndSend(eq("/topic/lobby"), argThat((LobbyResponse r) -> !r.isSuccess()));
+    void testHandleStartRoleSelection_broadcastsErrorWhenLobbyNotFound() {
+        StartRoleSelectionMessage msg = new StartRoleSelectionMessage("missing", "1");
+        controller.handleStartRoleSelection(msg);
+        verify(messagingTemplate).convertAndSend(
+                eq("/topic/player/1"),
+                argThat((LobbyResponse r) -> !r.isSuccess())
+        );
     }
 
     // ── NEUE Tests: StartGame ──────────────────────────────────────────────
@@ -448,8 +438,9 @@ class WebSocketBrokerControllerTest {
         StartGameMessage msg = new StartGameMessage(lobbyId, "host-1");
         controller.handleStartGame(msg);
 
+        // New architecture: broadcasts to /topic/lobby/{lobbyId}
         verify(messagingTemplate, atLeastOnce()).convertAndSend(
-                eq("/topic/lobby"),
+                eq("/topic/lobby/" + lobbyId),
                 argThat((LobbyResponse r) -> r.isSuccess()
                         && "GAME_STARTED".equals(r.getMessage())
                         && r.getLobby() != null
@@ -468,8 +459,9 @@ class WebSocketBrokerControllerTest {
         StartGameMessage msg = new StartGameMessage(lobbyId, "player-2");
         controller.handleStartGame(msg);
 
+        // Error goes to requester's personal topic
         verify(messagingTemplate, atLeastOnce()).convertAndSend(
-                eq("/topic/lobby"),
+                eq("/topic/player/player-2"),
                 argThat((LobbyResponse r) -> !r.isSuccess())
         );
     }
@@ -479,17 +471,18 @@ class WebSocketBrokerControllerTest {
         StartGameMessage msg = new StartGameMessage("nonexistent-lobby", "host-1");
         controller.handleStartGame(msg);
 
+        // Error goes to requester's personal topic
         verify(messagingTemplate).convertAndSend(
-                eq("/topic/lobby"),
+                eq("/topic/player/host-1"),
                 argThat((LobbyResponse r) -> !r.isSuccess()
                         && "Lobby not found".equals(r.getMessage()))
         );
     }
 
     @Test
-    void testHandleStartGame_broadcastsErrorOnException() {
-        controller.handleStartGame(null);
-        verify(messagingTemplate).convertAndSend(eq("/topic/lobby"), argThat((LobbyResponse r) -> !r.isSuccess()));
+    void testHandleStartGame_nullMessageDoesNotCrash() {
+        // null message is silently ignored (no sender to respond to)
+        assertDoesNotThrow(() -> controller.handleStartGame(null));
     }
 
     // --- handleStartPositionRequest ---
