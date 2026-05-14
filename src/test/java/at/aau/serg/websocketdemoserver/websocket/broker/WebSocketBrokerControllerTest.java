@@ -25,8 +25,6 @@ public class WebSocketBrokerControllerTest {
         controller = new WebSocketBrokerController(messagingTemplate);
     }
 
-    // ── Bestehende Tests (angepasst) ──────────────────────────────────────
-
     @Test
     void testHandleUserConnect() {
         WebSocketBrokerController noMsgController = new WebSocketBrokerController(messagingTemplate);
@@ -54,8 +52,7 @@ public class WebSocketBrokerControllerTest {
         assertEquals("Hallo", response.getText());
     }
 
-    // ── Bewegungstests (angepasst auf void + verify) ─────────────────
-
+    // ── Bewegungstests (unverändert) ───────────────────────────
     @Test
     void testHandleMove_NullMovement() {
         controller.handleMove("game1", null);
@@ -89,8 +86,7 @@ public class WebSocketBrokerControllerTest {
         );
     }
 
-    // ── Lobby Tests (angepasste Topics) ─────────────────────────────
-
+    // ── Lobby Tests (angepasste Messages) ─────────────────────
     @Test
     void testHandleCreateLobby_broadcastsToTopic() {
         CreateLobbyMessage message = new CreateLobbyMessage();
@@ -114,12 +110,11 @@ public class WebSocketBrokerControllerTest {
         verify(messagingTemplate).convertAndSend(
                 eq("/topic/lobby"),
                 argThat((LobbyResponse r) -> r.isSuccess()
-                        && "Lobby created".equals(r.getMessage())
+                        && "Host's Lobby created".equals(r.getMessage())
                         && r.getLobby() != null
                         && "TestLobby".equals(r.getLobby().getName()))
         );
     }
-
 
     @Test
     void testHandleJoinLobby_broadcastsSuccess() {
@@ -136,7 +131,7 @@ public class WebSocketBrokerControllerTest {
         verify(messagingTemplate, atLeastOnce()).convertAndSend(
                 eq("/topic/lobby/" + lobbyId),
                 argThat((LobbyResponse r) -> r.isSuccess()
-                        && "Joined lobby".equals(r.getMessage())
+                        && "Player joined Host's Lobby".equals(r.getMessage())
                         && r.getLobby() != null
                         && r.getLobby().getUsers().size() == 2)
         );
@@ -178,7 +173,7 @@ public class WebSocketBrokerControllerTest {
 
         verify(messagingTemplate, atLeastOnce()).convertAndSend(
                 eq("/topic/lobby/" + lobbyId),
-                argThat((LobbyResponse r) -> r.isSuccess() && "Left lobby".equals(r.getMessage()))
+                argThat((LobbyResponse r) -> r.isSuccess() && "Player left Host's Lobby".equals(r.getMessage()))
         );
     }
 
@@ -196,7 +191,7 @@ public class WebSocketBrokerControllerTest {
         verify(messagingTemplate, atLeastOnce()).convertAndSend(
                 eq("/topic/lobby"),
                 argThat((LobbyResponse r) -> r.isSuccess()
-                        && "Lobby deleted (empty)".equals(r.getMessage())
+                        && "Host left Host's Lobby (Lobby is now empty)".equals(r.getMessage())
                         && r.getLobby() == null)
         );
     }
@@ -224,7 +219,7 @@ public class WebSocketBrokerControllerTest {
 
         verify(messagingTemplate, atLeastOnce()).convertAndSend(
                 eq("/topic/lobby"),
-                argThat((LobbyResponse r) -> r.isSuccess() && "Lobby deleted".equals(r.getMessage()))
+                argThat((LobbyResponse r) -> r.isSuccess() && "Host deleted the Lobby".equals(r.getMessage()))
         );
     }
 
@@ -255,8 +250,7 @@ public class WebSocketBrokerControllerTest {
         );
     }
 
-    // ── KickPlayer ─────────────────────────────────────────────
-
+    // ── KickPlayer ────────────────────────────────────────────
     @Test
     void testHandleKickPlayer_success() {
         CreateLobbyMessage createMsg = new CreateLobbyMessage("TestLobby", "1", "Host");
@@ -274,7 +268,7 @@ public class WebSocketBrokerControllerTest {
         verify(messagingTemplate, atLeastOnce()).convertAndSend(
                 eq("/topic/lobby/" + lobbyId),
                 argThat((LobbyResponse r) -> r.isSuccess()
-                        && "Player kicked".equals(r.getMessage())
+                        && "Player was kicked out of Host's Lobby".equals(r.getMessage())
                         && r.getLobby() != null
                         && r.getLobby().getUsers().size() == 1)
         );
@@ -310,8 +304,7 @@ public class WebSocketBrokerControllerTest {
         );
     }
 
-    // ── SetRole ────────────────────────────────────────────────
-
+    // ── SetRole ───────────────────────────────────────────────
     @Test
     void testHandleSetRole_playerSetsOwnRole() {
         CreateLobbyMessage createMsg = new CreateLobbyMessage("TestLobby", "1", "Host");
@@ -325,7 +318,7 @@ public class WebSocketBrokerControllerTest {
 
         verify(messagingTemplate, atLeastOnce()).convertAndSend(
                 eq("/topic/lobby/" + lobbyId),
-                argThat((LobbyResponse r) -> r.isSuccess() && "Role set".equals(r.getMessage()))
+                argThat((LobbyResponse r) -> r.isSuccess() && "Host selected role MRX".equals(r.getMessage()))
         );
     }
 
@@ -359,8 +352,7 @@ public class WebSocketBrokerControllerTest {
         );
     }
 
-    // ── StartRoleSelection ────────────────────────────────────
-
+    // ── StartRoleSelection ───────────────────────────────────
     @Test
     void testHandleStartRoleSelection_hostCanStart() {
         CreateLobbyMessage createMsg = new CreateLobbyMessage("TestLobby", "1", "Host");
@@ -375,7 +367,7 @@ public class WebSocketBrokerControllerTest {
         verify(messagingTemplate, atLeastOnce()).convertAndSend(
                 eq("/topic/lobby/" + lobbyId),
                 argThat((LobbyResponse r) -> r.isSuccess()
-                        && "ROLE_SELECTION_STARTED".equals(r.getMessage()))
+                        && "Host started role selection".equals(r.getMessage()))
         );
     }
 

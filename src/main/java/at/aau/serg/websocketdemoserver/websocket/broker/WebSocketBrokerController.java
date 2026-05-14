@@ -91,7 +91,7 @@ public class WebSocketBrokerController {
         try {
             User host = new User(message.getUserId(), message.getNickName());
             Lobby lobby = lobbyService.createLobby(message.getLobbyName(), host);
-            LobbyResponse response = new LobbyResponse(true, "Lobby created", lobby.getId(), lobby);
+            LobbyResponse response = new LobbyResponse(true, message.getNickName() +  "'s Lobby created", lobby.getId(), lobby);
 
             sendToUser(message.getUserId(), response);
             broadcastToGlobalLobbyList(response);
@@ -105,7 +105,9 @@ public class WebSocketBrokerController {
         try {
             User user = new User(message.getUserId(), message.getNickName());
             Lobby lobby = lobbyService.joinLobby(message.getLobbyId(), user);
-            LobbyResponse response = new LobbyResponse(true, "Joined lobby", lobby.getId(), lobby);
+            String hostName = lobby.getHost().nickName();
+            String responseMessage = message.getNickName() + " joined " + hostName + "'s Lobby";
+            LobbyResponse response = new LobbyResponse(true, responseMessage, lobby.getId(), lobby);
 
             sendToUser(message.getUserId(), response);
             broadcastToSpecificLobby(lobby.getId(), response);
@@ -117,15 +119,25 @@ public class WebSocketBrokerController {
     @MessageMapping("/lobby/leave")
     public void handleLeaveLobby(LeaveLobbyMessage message) {
         try {
+            Lobby lobbyBefore = lobbyService.getLobby(message.getLobbyId());
+            User leavingUser = (lobbyBefore != null) ? lobbyBefore.getUsers().stream()
+                    .filter(u -> u.id().equals(message.getUserId()))
+                    .findFirst().orElse(null) : null;
+            String leavingUserName = (leavingUser != null) ? leavingUser.nickName() : "Unknown";
+            String hostNameBefore = (lobbyBefore != null && lobbyBefore.getHost() != null) ? lobbyBefore.getHost().nickName() : "Unknown";
+
             lobbyService.leaveLobby(message.getLobbyId(), message.getUserId());
             Lobby updatedLobby = lobbyService.getLobby(message.getLobbyId());
 
             if (updatedLobby == null) {
-                LobbyResponse response = new LobbyResponse(true, "Lobby deleted (empty)", message.getLobbyId(), null);
+                String responseMessage = leavingUserName + " left " + hostNameBefore + "'s Lobby (Lobby is now empty)";
+                LobbyResponse response = new LobbyResponse(true, responseMessage, message.getLobbyId(), null);
                 sendToUser(message.getUserId(), response);
                 broadcastToGlobalLobbyList(response);
             } else {
-                LobbyResponse response = new LobbyResponse(true, "Left lobby", updatedLobby.getId(), updatedLobby);
+                String hostNameAfter = updatedLobby.getHost().nickName();
+                String responseMessage = leavingUserName + " left " + hostNameAfter + "'s Lobby";
+                LobbyResponse response = new LobbyResponse(true, responseMessage, updatedLobby.getId(), updatedLobby);
                 sendToUser(message.getUserId(), response);
                 broadcastToSpecificLobby(updatedLobby.getId(), response);
             }
@@ -137,8 +149,12 @@ public class WebSocketBrokerController {
     @MessageMapping("/lobby/delete")
     public void handleDeleteLobby(DeleteLobbyMessage message) {
         try {
+            Lobby lobbyBefore = lobbyService.getLobby(message.getLobbyId());
+            String hostName = (lobbyBefore != null && lobbyBefore.getHost() != null) ? lobbyBefore.getHost().nickName() : "Unknown";
+
             lobbyService.deleteLobby(message.getLobbyId(), message.getRequesterId());
-            LobbyResponse response = new LobbyResponse(true, "Lobby deleted", message.getLobbyId(), null);
+            String responseMessage = hostName + " deleted the Lobby";
+            LobbyResponse response = new LobbyResponse(true, responseMessage, message.getLobbyId(), null);
 
             sendToUser(message.getRequesterId(), response);
             broadcastToSpecificLobby(message.getLobbyId(), response);
@@ -151,12 +167,20 @@ public class WebSocketBrokerController {
     @MessageMapping("/lobby/kick")
     public void handleKickPlayer(KickPlayerMessage message) {
         try {
+            Lobby lobbyBefore = lobbyService.getLobby(message.getLobbyId());
+            User targetUser = lobbyBefore.getUsers().stream()
+                    .filter(u -> u.id().equals(message.getTargetUserId()))
+                    .findFirst().orElse(null);
+            String targetNickName = (targetUser != null) ? targetUser.nickName() : "Unknown";
+
             Lobby lobby = lobbyService.kickPlayer(
                     message.getLobbyId(),
                     message.getRequesterId(),
                     message.getTargetUserId()
             );
-            LobbyResponse response = new LobbyResponse(true, "Player kicked", lobby.getId(), lobby);
+            String hostName = lobby.getHost().nickName();
+            String responseMessage = targetNickName + " was kicked out of " + hostName + "'s Lobby";
+            LobbyResponse response = new LobbyResponse(true, responseMessage, lobby.getId(), lobby);
 
             sendToUser(message.getTargetUserId(), response);
             broadcastToSpecificLobby(lobby.getId(), response);
@@ -174,7 +198,12 @@ public class WebSocketBrokerController {
                     message.getTargetUserId(),
                     message.getRole()
             );
-            broadcastToSpecificLobby(lobby.getId(), new LobbyResponse(true, "Role set", lobby.getId(), lobby));
+            User targetUser = lobby.getUsers().stream()
+                    .filter(u -> u.id().equals(message.getTargetUserId()))
+                    .findFirst().orElse(null);
+            String targetNickName = (targetUser != null) ? targetUser.nickName() : "Unknown";
+            String responseMessage = targetNickName + " selected role " + message.getRole();
+            broadcastToSpecificLobby(lobby.getId(), new LobbyResponse(true, responseMessage, lobby.getId(), lobby));
         } catch (Exception e) {
             sendToUser(message.getRequesterId(), new LobbyResponse(false, e.getMessage(), message.getLobbyId(), null));
         }
@@ -189,7 +218,12 @@ public class WebSocketBrokerController {
                 throw new IllegalStateException("Only host can start role selection");
 
             lobby.setLocked(true);
-            broadcastToSpecificLobby(lobby.getId(), new LobbyResponse(true, "ROLE_SELECTION_STARTED", lobby.getId(), lobby));
+            String hostName = lobby.getHost().nickName();
+            String responseMessage = hostName + " started role selection";
+            LobbyResponse response = new LobbyResponse(true, responseMessage, lobby.getId(), lobby);
+
+            sendToUser(message.getRequesterId(), response);
+            broadcastToSpecificLobby(lobby.getId(), response);
         } catch (Exception e) {
             sendToUser(message.getRequesterId(), new LobbyResponse(false, e.getMessage(), message.getLobbyId(), null));
         }
@@ -204,7 +238,12 @@ public class WebSocketBrokerController {
                 throw new IllegalStateException("Only host can go back to lobby");
 
             lobby.setLocked(false);
-            broadcastToSpecificLobby(lobby.getId(), new LobbyResponse(true, "BACK_TO_LOBBY", lobby.getId(), lobby));
+            String hostName = lobby.getHost().nickName();
+            String responseMessage = hostName + " returned to Lobby";
+            LobbyResponse response = new LobbyResponse(true, responseMessage, lobby.getId(), lobby);
+
+            sendToUser(message.getRequesterId(), response);
+            broadcastToSpecificLobby(lobby.getId(), response);
         } catch (Exception e) {
             sendToUser(message.getRequesterId(), new LobbyResponse(false, e.getMessage(), message.getLobbyId(), null));
         }
