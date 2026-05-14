@@ -698,4 +698,48 @@ class GameStateTest {
         assertThrows(IllegalArgumentException.class,
                 () -> gameState.assignStartPosition("unknownPlayer"));
     }
+
+    // ── initializePlayersFromLobby ─────────────────────────────────────────
+
+    @Test
+    void testInitializePlayersFromLobby_populatesPlayers() {
+        // Uses real Lobby objects (no mock) — no canStartGame() check required
+        at.aau.serg.websocketdemoserver.lobby.Lobby lobby =
+                new at.aau.serg.websocketdemoserver.lobby.Lobby("TestLobby", hostUser);
+        lobby.addUser(detectiveUser1);
+        lobby.selectRole(hostUser.id(), Role.MRX);
+        lobby.selectRole(detectiveUser1.id(), Role.DETECTIVE);
+
+        gameState.initializePlayersFromLobby(lobby);
+
+        assertNotNull(gameState.getPlayer(hostUser.id()));
+        assertNotNull(gameState.getPlayer(detectiveUser1.id()));
+        assertTrue(gameState.getPlayer(hostUser.id()).isMrX());
+        assertFalse(gameState.getPlayer(detectiveUser1.id()).isMrX());
+    }
+
+    @Test
+    void testInitializePlayersFromLobby_allowsFewerThanMinPlayers() {
+        // Only 1 player — initializePlayersFromLobby must NOT throw (no canStartGame check)
+        at.aau.serg.websocketdemoserver.lobby.Lobby lobby =
+                new at.aau.serg.websocketdemoserver.lobby.Lobby("Solo", hostUser);
+        lobby.selectRole(hostUser.id(), Role.MRX);
+
+        assertDoesNotThrow(() -> gameState.initializePlayersFromLobby(lobby));
+        assertNotNull(gameState.getPlayer(hostUser.id()));
+    }
+
+    @Test
+    void testInitializePlayersFromLobby_assignStartPositionWorksAfter() {
+        at.aau.serg.websocketdemoserver.lobby.Lobby lobby =
+                new at.aau.serg.websocketdemoserver.lobby.Lobby("TestLobby", hostUser);
+        lobby.addUser(detectiveUser1);
+        lobby.selectRole(hostUser.id(), Role.MRX);
+        lobby.selectRole(detectiveUser1.id(), Role.DETECTIVE);
+
+        gameState.initializePlayersFromLobby(lobby);
+
+        int pos = gameState.assignStartPosition(hostUser.id());
+        assertTrue(pos >= 1 && pos <= 199);
+    }
 }

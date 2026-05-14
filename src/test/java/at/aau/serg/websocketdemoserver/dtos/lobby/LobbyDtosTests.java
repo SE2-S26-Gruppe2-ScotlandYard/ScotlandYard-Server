@@ -533,4 +533,41 @@ class LobbyDtosTests {
         assertThat(m1.hashCode()).isEqualTo(m2.hashCode());
         assertThat(m1).isNotEqualTo(m3);
     }
+
+    // ── NEUE Tests: StartGameMessage ──────────────────────────────────────
+
+    @Test
+    void testStartGameMessageNoArgsConstructor() {
+        StartGameMessage message = new StartGameMessage();
+        assertThat(message.getLobbyId()).isNull();
+        assertThat(message.getRequesterId()).isNull();
+    }
+
+    @Test
+    void testStartGameMessageAllArgsConstructor() {
+        StartGameMessage message = new StartGameMessage("lobby-1", "host-1");
+        assertThat(message.getLobbyId()).isEqualTo("lobby-1");
+        assertThat(message.getRequesterId()).isEqualTo("host-1");
+    }
+
+    @Test
+    void testStartGameMessageSettersAndGetters() {
+        StartGameMessage message = new StartGameMessage();
+        message.setLobbyId("lobby-1");
+        message.setRequesterId("host-1");
+
+        assertThat(message.getLobbyId()).isEqualTo("lobby-1");
+        assertThat(message.getRequesterId()).isEqualTo("host-1");
+    }
+
+    @Test
+    void testStartGameMessageEqualsAndHashCode() {
+        StartGameMessage m1 = new StartGameMessage("lobby-1", "host-1");
+        StartGameMessage m2 = new StartGameMessage("lobby-1", "host-1");
+        StartGameMessage m3 = new StartGameMessage("lobby-2", "host-2");
+
+        assertThat(m1).isEqualTo(m2);
+        assertThat(m1.hashCode()).isEqualTo(m2.hashCode());
+        assertThat(m1).isNotEqualTo(m3);
+    }
 }

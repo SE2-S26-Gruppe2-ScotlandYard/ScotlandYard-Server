@@ -421,6 +421,77 @@ class WebSocketBrokerControllerTest {
         verify(messagingTemplate).convertAndSend(eq("/topic/lobby"), argThat((LobbyResponse r) -> !r.isSuccess()));
     }
 
+    // ── NEUE Tests: StartGame ──────────────────────────────────────────────
+
+    /**
+     * Creates a lobby with 2 players (host = MrX, player-2 = Detective).
+     * setRole auto-marks them as ready. The GameState is initialized via
+     * initializePlayersFromLobby (no strict canStartGame check).
+     */
+    private String createReadyLobbyAndGetId() {
+        CreateLobbyMessage createMsg = new CreateLobbyMessage("TestLobby", "host-1", "Host");
+        controller.handleCreateLobby(createMsg);
+        var captor = org.mockito.ArgumentCaptor.forClass(LobbyResponse.class);
+        verify(messagingTemplate, atLeastOnce()).convertAndSend(eq("/topic/lobby"), captor.capture());
+        String lobbyId = captor.getValue().getLobbyId();
+
+        controller.handleJoinLobby(new JoinLobbyMessage(lobbyId, "player-2", "Player2"));
+        controller.handleSetRole(new SetRoleMessage(lobbyId, "host-1",   "host-1",   "MRX"));
+        controller.handleSetRole(new SetRoleMessage(lobbyId, "player-2", "player-2", "DETECTIVE"));
+        return lobbyId;
+    }
+
+    @Test
+    void testHandleStartGame_hostCanStart() {
+        String lobbyId = createReadyLobbyAndGetId();
+
+        StartGameMessage msg = new StartGameMessage(lobbyId, "host-1");
+        controller.handleStartGame(msg);
+
+        verify(messagingTemplate, atLeastOnce()).convertAndSend(
+                eq("/topic/lobby"),
+                argThat((LobbyResponse r) -> r.isSuccess()
+                        && "GAME_STARTED".equals(r.getMessage())
+                        && r.getLobby() != null
+                        && lobbyId.equals(r.getLobbyId()))
+        );
+
+        // GameState must be registered so start-position assignment works
+        assertNotNull(GameController.getInstance().getGame(lobbyId));
+        GameController.getInstance().removeGame(lobbyId);
+    }
+
+    @Test
+    void testHandleStartGame_failsForNonHost() {
+        String lobbyId = createReadyLobbyAndGetId();
+
+        StartGameMessage msg = new StartGameMessage(lobbyId, "player-2");
+        controller.handleStartGame(msg);
+
+        verify(messagingTemplate, atLeastOnce()).convertAndSend(
+                eq("/topic/lobby"),
+                argThat((LobbyResponse r) -> !r.isSuccess())
+        );
+    }
+
+    @Test
+    void testHandleStartGame_failsWhenLobbyNotFound() {
+        StartGameMessage msg = new StartGameMessage("nonexistent-lobby", "host-1");
+        controller.handleStartGame(msg);
+
+        verify(messagingTemplate).convertAndSend(
+                eq("/topic/lobby"),
+                argThat((LobbyResponse r) -> !r.isSuccess()
+                        && "Lobby not found".equals(r.getMessage()))
+        );
+    }
+
+    @Test
+    void testHandleStartGame_broadcastsErrorOnException() {
+        controller.handleStartGame(null);
+        verify(messagingTemplate).convertAndSend(eq("/topic/lobby"), argThat((LobbyResponse r) -> !r.isSuccess()));
+    }
+
     // --- handleStartPositionRequest ---
 
     private WebSocketBrokerController controllerWithMockTemplate(SimpMessagingTemplate template) {
