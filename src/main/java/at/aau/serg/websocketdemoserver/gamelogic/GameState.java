@@ -214,7 +214,9 @@ public class GameState {
     }
 
     public boolean isCaught() {
-        return getDetectivePositions().containsValue(getMrXPosition());
+        Integer mrXPos = getMrXPosition();
+        if (mrXPos == null) return false;
+        return getDetectivePositions().containsValue(mrXPos);
     }
 
     public GameResult checkGameResult() {

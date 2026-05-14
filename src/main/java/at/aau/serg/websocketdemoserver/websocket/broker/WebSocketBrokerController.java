@@ -314,54 +314,63 @@ public class WebSocketBrokerController {
                 return;
             }
 
-            Integer playerPosition = gameState.getPlayerPosition(movement.getPlayerId());
-            if (playerPosition == null) {
+            Player movingPlayer = gameState.getPlayer(movement.getPlayerId());
+            if (movingPlayer == null) {
                 sendToUser(movement.getPlayerId(), new MovementResponse(false, "Invalid movement data", 0, null));
                 return;
             }
 
-            boolean isMrX = gameState.getPlayer(movement.getPlayerId()) != null
-                    && gameState.getPlayer(movement.getPlayerId()).isMrX();
-
+            boolean isMrX = movingPlayer.isMrX();
             TurnType phase = gameState.getCurrentPhase();
 
             if (isMrX && phase != TurnType.MRX) {
-                sendToUser(movement.getPlayerId(), new MovementResponse(false, "Not Mr. X's turn", playerPosition, null));
+                Integer pos = gameState.getPlayerPosition(movement.getPlayerId());
+                sendToUser(movement.getPlayerId(), new MovementResponse(false, "Not Mr. X's turn", pos != null ? pos : 0, null));
                 return;
             }
 
             if (!isMrX && phase != TurnType.DETECTIVES) {
-                sendToUser(movement.getPlayerId(), new MovementResponse(false, "Not the detectives' turn", playerPosition, null));
+                Integer pos = gameState.getPlayerPosition(movement.getPlayerId());
+                sendToUser(movement.getPlayerId(), new MovementResponse(false, "Not the detectives' turn", pos != null ? pos : 0, null));
                 return;
             }
 
             if (!isMrX && !gameState.getRoundController().isDetectivePending(movement.getPlayerId())) {
-                sendToUser(movement.getPlayerId(), new MovementResponse(false, "Detective has already moved this round", playerPosition, null));
+                Integer pos = gameState.getPlayerPosition(movement.getPlayerId());
+                sendToUser(movement.getPlayerId(), new MovementResponse(false, "Detective has already moved this round", pos != null ? pos : 0, null));
                 return;
             }
 
             if (movement.getTicket() == TicketType.DOUBLE) {
-                boolean success = gameState.activateDoubleMove();
+                Integer playerPosition = gameState.getPlayerPosition(movement.getPlayerId());
+                int pos = playerPosition != null ? playerPosition : 0;
 
-                if (!success) {
-                    Player player = gameState.getPlayer(movement.getPlayerId());
-                    if (!player.isMrX()) {
-                        sendToUser(movement.getPlayerId(), new MovementResponse(false, "Only Mr. X can use the DOUBLE ticket", playerPosition, null));
-                        return;
-                    }
-                    if (!player.hasTicket(TicketType.DOUBLE)) {
-                        sendToUser(movement.getPlayerId(), new MovementResponse(false, "No DOUBLE tickets remaining", playerPosition, null));
-                        return;
-                    }
-                    if (gameState.getRoundController().isDoubleMoveActive()) {
-                        sendToUser(movement.getPlayerId(), new MovementResponse(false, "Double move is already in use", playerPosition, null));
-                        return;
-                    }
-                    sendToUser(movement.getPlayerId(), new MovementResponse(false, "Cannot activate double move ticket", playerPosition, null));
+                if (!isMrX) {
+                    sendToUser(movement.getPlayerId(), new MovementResponse(false, "Only Mr. X can use the DOUBLE ticket", pos, null));
                     return;
                 }
-                broadcastGameState(gameId, gameState);
-                sendMoveResponse(gameId, new MovementResponse(true, "Double move ticket activated", playerPosition, null));
+                if (!movingPlayer.hasTicket(TicketType.DOUBLE)) {
+                    sendToUser(movement.getPlayerId(), new MovementResponse(false, "No DOUBLE tickets remaining", pos, null));
+                    return;
+                }
+                if (gameState.getRoundController().isDoubleMoveActive()) {
+                    sendToUser(movement.getPlayerId(), new MovementResponse(false, "Double move is already in use", pos, null));
+                    return;
+                }
+
+                boolean success = gameState.activateDoubleMove();
+                if (success) {
+                    broadcastGameState(gameId, gameState);
+                    sendMoveResponse(gameId, new MovementResponse(true, "Double move ticket activated", pos, null));
+                } else {
+                    sendToUser(movement.getPlayerId(), new MovementResponse(false, "Cannot activate double move ticket", pos, null));
+                }
+                return;
+            }
+
+            Integer playerPosition = gameState.getPlayerPosition(movement.getPlayerId());
+            if (playerPosition == null) {
+                sendToUser(movement.getPlayerId(), new MovementResponse(false, "Invalid movement data", 0, null));
                 return;
             }
 
