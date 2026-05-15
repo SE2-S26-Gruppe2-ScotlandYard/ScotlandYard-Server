@@ -1,20 +1,30 @@
 package at.aau.serg.websocketdemoserver.websocket.broker;
 
+import at.aau.serg.websocketdemoserver.dtos.StartPositionRequest;
+import at.aau.serg.websocketdemoserver.dtos.StartPositionResponse;
 import at.aau.serg.websocketdemoserver.dtos.StompMessage;
 import at.aau.serg.websocketdemoserver.dtos.lobby.*;
 import at.aau.serg.websocketdemoserver.dtos.movement.MovementMessage;
 import at.aau.serg.websocketdemoserver.dtos.movement.MovementResponse;
+import at.aau.serg.websocketdemoserver.gamelogic.GameState;
 import at.aau.serg.websocketdemoserver.gamelogic.player.TicketType;
 import org.junit.jupiter.api.BeforeEach;
+import at.aau.serg.websocketdemoserver.lobby.Lobby;
+import at.aau.serg.websocketdemoserver.lobby.Role;
+import at.aau.serg.websocketdemoserver.lobby.User;
+import at.aau.serg.websocketdemoserver.service.GameController;
 import org.junit.jupiter.api.Test;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.mockito.ArgumentCaptor;
+
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
-public class WebSocketBrokerControllerTest {
+class WebSocketBrokerControllerTest {
 
     private SimpMessagingTemplate messagingTemplate;
     private WebSocketBrokerController controller;
@@ -399,5 +409,175 @@ public class WebSocketBrokerControllerTest {
                 eq("/topic/player/1"),
                 argThat((LobbyResponse r) -> !r.isSuccess())
         );
+    }
+
+    // ── NEUE Tests: StartGame ──────────────────────────────────────────────
+
+    /**
+     * Creates a lobby with 2 players (host = MrX, player-2 = Detective).
+     * setRole auto-marks them as ready. The GameState is initialized via
+     * initializePlayersFromLobby (no strict canStartGame check).
+     */
+    private String createReadyLobbyAndGetId() {
+        CreateLobbyMessage createMsg = new CreateLobbyMessage("TestLobby", "host-1", "Host");
+        controller.handleCreateLobby(createMsg);
+        var captor = org.mockito.ArgumentCaptor.forClass(LobbyResponse.class);
+        verify(messagingTemplate, atLeastOnce()).convertAndSend(eq("/topic/lobby"), captor.capture());
+        String lobbyId = captor.getValue().getLobbyId();
+
+        controller.handleJoinLobby(new JoinLobbyMessage(lobbyId, "player-2", "Player2"));
+        controller.handleSetRole(new SetRoleMessage(lobbyId, "host-1",   "host-1",   "MRX"));
+        controller.handleSetRole(new SetRoleMessage(lobbyId, "player-2", "player-2", "DETECTIVE"));
+        return lobbyId;
+    }
+
+    @Test
+    void testHandleStartGame_hostCanStart() {
+        String lobbyId = createReadyLobbyAndGetId();
+
+        StartGameMessage msg = new StartGameMessage(lobbyId, "host-1");
+        controller.handleStartGame(msg);
+
+        // New architecture: broadcasts to /topic/lobby/{lobbyId}
+        verify(messagingTemplate, atLeastOnce()).convertAndSend(
+                eq("/topic/lobby/" + lobbyId),
+                argThat((LobbyResponse r) -> r.isSuccess()
+                        && "GAME_STARTED".equals(r.getMessage())
+                        && r.getLobby() != null
+                        && lobbyId.equals(r.getLobbyId()))
+        );
+
+        // GameState must be registered so start-position assignment works
+        assertNotNull(GameController.getInstance().getGame(lobbyId));
+        GameController.getInstance().removeGame(lobbyId);
+    }
+
+    @Test
+    void testHandleStartGame_failsForNonHost() {
+        String lobbyId = createReadyLobbyAndGetId();
+
+        StartGameMessage msg = new StartGameMessage(lobbyId, "player-2");
+        controller.handleStartGame(msg);
+
+        // Error goes to requester's personal topic
+        verify(messagingTemplate, atLeastOnce()).convertAndSend(
+                eq("/topic/player/player-2"),
+                argThat((LobbyResponse r) -> !r.isSuccess())
+        );
+    }
+
+    @Test
+    void testHandleStartGame_failsWhenLobbyNotFound() {
+        StartGameMessage msg = new StartGameMessage("nonexistent-lobby", "host-1");
+        controller.handleStartGame(msg);
+
+        // Error goes to requester's personal topic
+        verify(messagingTemplate).convertAndSend(
+                eq("/topic/player/host-1"),
+                argThat((LobbyResponse r) -> !r.isSuccess()
+                        && "Lobby not found".equals(r.getMessage()))
+        );
+    }
+
+    @Test
+    void testHandleStartGame_nullMessageDoesNotCrash() {
+        // null message is silently ignored (no sender to respond to)
+        assertDoesNotThrow(() -> controller.handleStartGame(null));
+    }
+
+    // --- handleStartPositionRequest ---
+
+    private WebSocketBrokerController controllerWithMockTemplate(SimpMessagingTemplate template) {
+        return new WebSocketBrokerController(template);
+    }
+
+    @Test
+    void testHandleStartPositionRequest_GameNotFound() {
+        SimpMessagingTemplate template = mock(SimpMessagingTemplate.class);
+        WebSocketBrokerController localController = controllerWithMockTemplate(template);
+
+        StartPositionRequest request = new StartPositionRequest("unknown-game", "player-1");
+        localController.handleStartPositionRequest(request);
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(template).convertAndSend(
+                eq("/topic/game/unknown-game/player/player-1/start-position"),
+                captor.capture()
+        );
+
+        StartPositionResponse response = (StartPositionResponse) captor.getValue();
+        assertEquals("ERROR", response.getType());
+        assertEquals("Game not found", response.getMessage());
+        assertNull(response.getStartPosition());
+    }
+
+    @Test
+    void testHandleStartPositionRequest_InvalidPlayer() {
+        SimpMessagingTemplate template = mock(SimpMessagingTemplate.class);
+        WebSocketBrokerController localController = controllerWithMockTemplate(template);
+
+        // register a real game with no players
+        GameState gameState = new GameState("game-xyz");
+        GameController.getInstance().addGame("game-xyz", gameState);
+
+        StartPositionRequest request = new StartPositionRequest("game-xyz", "unknown-player");
+        localController.handleStartPositionRequest(request);
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(template).convertAndSend(
+                eq("/topic/game/game-xyz/player/unknown-player/start-position"),
+                captor.capture()
+        );
+
+        StartPositionResponse response = (StartPositionResponse) captor.getValue();
+        assertEquals("ERROR", response.getType());
+        assertNotNull(response.getMessage());
+        assertNull(response.getStartPosition());
+
+        GameController.getInstance().removeGame("game-xyz");
+    }
+
+    @Test
+    void testHandleStartPositionRequest_Success() {
+        SimpMessagingTemplate template = mock(SimpMessagingTemplate.class);
+        WebSocketBrokerController localController = controllerWithMockTemplate(template);
+
+        // set up a real game with a player
+        GameState gameState = new GameState("game-abc");
+        Lobby mockLobby = mock(Lobby.class);
+        User player = new User("player-1", "TestPlayer");
+        when(mockLobby.canStartGame()).thenReturn(true);
+        when(mockLobby.getUsers()).thenReturn(List.of(player));
+        when(mockLobby.getSelectedRole("player-1")).thenReturn(Role.DETECTIVE);
+        gameState.initializeFromLobby(mockLobby);
+        GameController.getInstance().addGame("game-abc", gameState);
+
+        StartPositionRequest request = new StartPositionRequest("game-abc", "player-1");
+        localController.handleStartPositionRequest(request);
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(template).convertAndSend(
+                eq("/topic/game/game-abc/player/player-1/start-position"),
+                captor.capture()
+        );
+
+        StartPositionResponse response = (StartPositionResponse) captor.getValue();
+        assertEquals("START_POSITION_ASSIGNED", response.getType());
+        assertEquals("game-abc", response.getGameId());
+        assertEquals("player-1", response.getPlayerId());
+        assertNotNull(response.getStartPosition());
+        assertTrue(response.getStartPosition() >= 1 && response.getStartPosition() <= 199);
+
+        // calling again returns the same position
+        localController.handleStartPositionRequest(request);
+        ArgumentCaptor<Object> captor2 = ArgumentCaptor.forClass(Object.class);
+        verify(template, times(2)).convertAndSend(
+                eq("/topic/game/game-abc/player/player-1/start-position"),
+                captor2.capture()
+        );
+        StartPositionResponse response2 = (StartPositionResponse) captor2.getAllValues().get(1);
+        assertEquals(response.getStartPosition(), response2.getStartPosition());
+
+        GameController.getInstance().removeGame("game-abc");
     }
 }

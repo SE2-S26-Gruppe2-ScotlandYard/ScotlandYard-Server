@@ -237,4 +237,17 @@ public class LobbyServiceTest {
         assertThrows(IllegalArgumentException.class,
                 () -> service.setRole("missing", "1", "1", "MRX"));
     }
+
+    @Test
+    void testSetRole_marksPlayerReadyAutomatically() {
+        LobbyService service = new LobbyService();
+        User host = new User("1", "Host");
+        Lobby lobby = service.createLobby("TestLobby", host);
+
+        assertFalse(lobby.getReadyStatus().get(host.id()), "Player should not be ready before selecting a role");
+
+        service.setRole(lobby.getId(), host.id(), host.id(), "MRX");
+
+        assertTrue(lobby.getReadyStatus().get(host.id()), "Player should be auto-marked ready after selecting a role");
+    }
 }

@@ -1,5 +1,7 @@
 package at.aau.serg.websocketdemoserver.websocket.broker;
 
+import at.aau.serg.websocketdemoserver.dtos.StartPositionRequest;
+import at.aau.serg.websocketdemoserver.dtos.StartPositionResponse;
 import at.aau.serg.websocketdemoserver.dtos.StompMessage;
 import at.aau.serg.websocketdemoserver.dtos.lobby.*;
 import at.aau.serg.websocketdemoserver.dtos.movement.MovementMessage;
@@ -24,10 +26,12 @@ import org.springframework.stereotype.Controller;
 @Controller
 public class WebSocketBrokerController {
 
+    private static final String TOPIC_GAME = "/topic/game/";
+
     private final GameController gameController = GameController.getInstance();
     private final LobbyService lobbyService = new LobbyService();
-    private final UserService userService = new UserService();
     private final SimpMessagingTemplate messagingTemplate;
+    private final UserService userService = new UserService();
 
     public WebSocketBrokerController(SimpMessagingTemplate messagingTemplate) {
         this.messagingTemplate = messagingTemplate;
@@ -91,7 +95,7 @@ public class WebSocketBrokerController {
         try {
             User host = new User(message.getUserId(), message.getNickName());
             Lobby lobby = lobbyService.createLobby(message.getLobbyName(), host);
-            LobbyResponse response = new LobbyResponse(true, message.getNickName() +  "'s Lobby created", lobby.getId(), lobby);
+            LobbyResponse response = new LobbyResponse(true, message.getNickName() + "'s Lobby created", lobby.getId(), lobby);
 
             sendToUser(message.getUserId(), response);
             broadcastToGlobalLobbyList(response);
@@ -229,6 +233,25 @@ public class WebSocketBrokerController {
         }
     }
 
+    @MessageMapping("/lobby/startGame")
+    public void handleStartGame(StartGameMessage message) {
+        if (message == null) return;
+        try {
+            Lobby lobby = lobbyService.getLobby(message.getLobbyId());
+            if (lobby == null) throw new IllegalArgumentException("Lobby not found");
+            if (!lobby.getHostId().equals(message.getRequesterId()))
+                throw new IllegalStateException("Only host can start the game");
+
+            GameState gameState = new GameState(lobby.getId());
+            gameState.initializePlayersFromLobby(lobby);
+            gameController.addGame(lobby.getId(), gameState);
+
+            broadcastToSpecificLobby(lobby.getId(), new LobbyResponse(true, "GAME_STARTED", lobby.getId(), lobby));
+        } catch (Exception e) {
+            sendToUser(message.getRequesterId(), new LobbyResponse(false, e.getMessage(), message.getLobbyId(), null));
+        }
+    }
+
     @MessageMapping("/lobby/backToLobby")
     public void handleBackToLobby(BackToLobbyMessage message) {
         try {
@@ -246,6 +269,29 @@ public class WebSocketBrokerController {
             broadcastToSpecificLobby(lobby.getId(), response);
         } catch (Exception e) {
             sendToUser(message.getRequesterId(), new LobbyResponse(false, e.getMessage(), message.getLobbyId(), null));
+        }
+    }
+
+    @MessageMapping("/game/start-position/request")
+    public void handleStartPositionRequest(StartPositionRequest request) {
+        String gameId = request.getGameId();
+        String playerId = request.getPlayerId();
+        String topic = TOPIC_GAME + gameId + "/player/" + playerId + "/start-position";
+
+        GameState gameState = gameController.getGame(gameId);
+        if (gameState == null) {
+            messagingTemplate.convertAndSend(topic,
+                    new StartPositionResponse("ERROR", gameId, playerId, null, "Game not found"));
+            return;
+        }
+
+        try {
+            int position = gameState.assignStartPosition(playerId);
+            messagingTemplate.convertAndSend(topic,
+                    new StartPositionResponse("START_POSITION_ASSIGNED", gameId, playerId, position, null));
+        } catch (Exception e) {
+            messagingTemplate.convertAndSend(topic,
+                    new StartPositionResponse("ERROR", gameId, playerId, null, e.getMessage()));
         }
     }
 
@@ -268,51 +314,63 @@ public class WebSocketBrokerController {
                 return;
             }
 
-            Integer playerPosition = gameState.getPlayerPosition(movement.getPlayerId());
-            if (playerPosition == null) {
+            Player movingPlayer = gameState.getPlayer(movement.getPlayerId());
+            if (movingPlayer == null) {
                 sendToUser(movement.getPlayerId(), new MovementResponse(false, "Invalid movement data", 0, null));
                 return;
             }
 
-            boolean isMrX = gameState.getPlayer(movement.getPlayerId()) != null
-                    && gameState.getPlayer(movement.getPlayerId()).isMrX();
-
+            boolean isMrX = movingPlayer.isMrX();
             TurnType phase = gameState.getCurrentPhase();
 
             if (isMrX && phase != TurnType.MRX) {
-                sendToUser(movement.getPlayerId(), new MovementResponse(false, "Not Mr. X's turn", playerPosition, null));
+                Integer pos = gameState.getPlayerPosition(movement.getPlayerId());
+                sendToUser(movement.getPlayerId(), new MovementResponse(false, "Not Mr. X's turn", pos != null ? pos : 0, null));
                 return;
             }
+
             if (!isMrX && phase != TurnType.DETECTIVES) {
-                sendToUser(movement.getPlayerId(), new MovementResponse(false, "Not the detectives' turn", playerPosition, null));
+                Integer pos = gameState.getPlayerPosition(movement.getPlayerId());
+                sendToUser(movement.getPlayerId(), new MovementResponse(false, "Not the detectives' turn", pos != null ? pos : 0, null));
                 return;
             }
+
             if (!isMrX && !gameState.getRoundController().isDetectivePending(movement.getPlayerId())) {
-                sendToUser(movement.getPlayerId(), new MovementResponse(false, "Detective has already moved this round", playerPosition, null));
+                Integer pos = gameState.getPlayerPosition(movement.getPlayerId());
+                sendToUser(movement.getPlayerId(), new MovementResponse(false, "Detective has already moved this round", pos != null ? pos : 0, null));
                 return;
             }
 
             if (movement.getTicket() == TicketType.DOUBLE) {
-                boolean success = gameState.activateDoubleMove();
-                if (!success) {
-                    Player player = gameState.getPlayer(movement.getPlayerId());
-                    if (!player.isMrX()) {
-                        sendToUser(movement.getPlayerId(), new MovementResponse(false, "Only Mr. X can use the DOUBLE ticket", playerPosition, null));
-                        return;
-                    }
-                    if (!player.hasTicket(TicketType.DOUBLE)) {
-                        sendToUser(movement.getPlayerId(), new MovementResponse(false, "No DOUBLE tickets remaining", playerPosition, null));
-                        return;
-                    }
-                    if (gameState.getRoundController().isDoubleMoveActive()) {
-                        sendToUser(movement.getPlayerId(), new MovementResponse(false, "Double move is already in use", playerPosition, null));
-                        return;
-                    }
-                    sendToUser(movement.getPlayerId(), new MovementResponse(false, "Cannot activate double move ticket", playerPosition, null));
+                Integer playerPosition = gameState.getPlayerPosition(movement.getPlayerId());
+                int pos = playerPosition != null ? playerPosition : 0;
+
+                if (!isMrX) {
+                    sendToUser(movement.getPlayerId(), new MovementResponse(false, "Only Mr. X can use the DOUBLE ticket", pos, null));
                     return;
                 }
-                broadcastGameState(gameId, gameState);
-                sendMoveResponse(gameId, new MovementResponse(true, "Double move ticket activated", playerPosition, null));
+                if (!movingPlayer.hasTicket(TicketType.DOUBLE)) {
+                    sendToUser(movement.getPlayerId(), new MovementResponse(false, "No DOUBLE tickets remaining", pos, null));
+                    return;
+                }
+                if (gameState.getRoundController().isDoubleMoveActive()) {
+                    sendToUser(movement.getPlayerId(), new MovementResponse(false, "Double move is already in use", pos, null));
+                    return;
+                }
+
+                boolean success = gameState.activateDoubleMove();
+                if (success) {
+                    broadcastGameState(gameId, gameState);
+                    sendMoveResponse(gameId, new MovementResponse(true, "Double move ticket activated", pos, null));
+                } else {
+                    sendToUser(movement.getPlayerId(), new MovementResponse(false, "Cannot activate double move ticket", pos, null));
+                }
+                return;
+            }
+
+            Integer playerPosition = gameState.getPlayerPosition(movement.getPlayerId());
+            if (playerPosition == null) {
+                sendToUser(movement.getPlayerId(), new MovementResponse(false, "Invalid movement data", 0, null));
                 return;
             }
 

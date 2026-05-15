@@ -96,6 +96,7 @@ public class LobbyService {
         boolean success = lobby.selectRole(targetUserId,
                 at.aau.serg.websocketdemoserver.lobby.Role.valueOf(role));
         if (!success) throw new IllegalStateException("Mr. X is already taken");
+        lobby.markPlayerReady(targetUserId);
         return lobby;
     }
 

@@ -1,10 +1,6 @@
 package at.aau.serg.websocketdemoserver.gamelogic;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Random;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import at.aau.serg.websocketdemoserver.gamelogic.board.Board;
@@ -63,17 +59,58 @@ public class GameState {
             players.put(user.id(), player);
         }
 
-        // set start positions
-        initializeStartPositions();
     }
 
-    private void initializeStartPositions() {
-        int[] startPositions = new int[] {13, 26, 29, 34, 50, 53, 91, 94, 103, 112, 117, 132, 138, 141, 155, 174, 197, 198};
-
-        for (String playerId : players.keySet()) {
-            int rnd = RANDOM.nextInt(startPositions.length);
-            setPlayerPosition(playerId, startPositions[rnd]);
+    /**
+     * Initializes players directly from the lobby's current user list and roles,
+     * without enforcing canStartGame() conditions. Useful when the game is started
+     * before all lobby preconditions (min. players, ready status) are fully met,
+     * e.g. during development or testing.
+     */
+    public void initializePlayersFromLobby(Lobby lobby) {
+        for (User user : lobby.getUsers()) {
+            Role role = lobby.getSelectedRole(user.id());
+            Player player;
+            if (role == Role.MRX) {
+                player = new MrX(user);
+                this.mrXId = user.id();
+            } else {
+                player = new Detective(user);
+            }
+            players.put(user.id(), player);
         }
+        Set<String> detectiveIds = players.keySet().stream()
+                .filter(id -> !id.equals(mrXId))
+                .collect(Collectors.toSet());
+        roundController.initDetectives(detectiveIds);
+    }
+
+    public int assignStartPosition(String playerId) {
+        if (!players.containsKey(playerId)) {
+            throw new IllegalArgumentException("Player not found: " + playerId);
+        }
+
+        Integer existingPosition = playerPositions.get(playerId);
+        if (existingPosition != null) {
+            return existingPosition;
+        }
+
+        List<Integer> availablePositions = new ArrayList<>();
+        for (int i = 1; i <= 199; i++) {
+            availablePositions.add(i);
+        }
+
+        availablePositions.removeAll(playerPositions.values());
+
+        if (availablePositions.isEmpty()) {
+            throw new IllegalStateException("No free start positions available");
+        }
+
+        Collections.shuffle(availablePositions, RANDOM);
+        int assignedPosition = availablePositions.getFirst();
+
+        playerPositions.put(playerId, assignedPosition);
+        return assignedPosition;
     }
 
     public boolean activateDoubleMove() {
@@ -177,7 +214,9 @@ public class GameState {
     }
 
     public boolean isCaught() {
-        return getDetectivePositions().containsValue(getMrXPosition());
+        Integer mrXPos = getMrXPosition();
+        if (mrXPos == null) return false;
+        return getDetectivePositions().containsValue(mrXPos);
     }
 
     public GameResult checkGameResult() {
