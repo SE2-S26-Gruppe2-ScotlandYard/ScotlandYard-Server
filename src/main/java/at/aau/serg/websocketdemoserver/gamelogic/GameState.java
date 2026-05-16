@@ -28,6 +28,7 @@ public class GameState {
     private String mrXId;
     public static final int MAX_ROUNDS = 22;
     private final Random RANDOM = new Random();     //NOSONAR not used in secure contexts
+    private final List<TicketType> mrXMoveHistory = new ArrayList<>(MAX_ROUNDS + 2);    // 2 = MAX_DOUBLE_TICKET
 
     public GameState (String gameId) {
         this.gameId = gameId;
@@ -146,6 +147,12 @@ public class GameState {
         return roundController.getCurrentPhase();
     }
 
+    public List<String> getMrXMoveHistory() {
+        return mrXMoveHistory.stream()
+                .map(Enum::name)
+                .collect(Collectors.toList());
+    }
+
     public Map<String, Map<String, Integer>> getPlayerTickets() {
         Map<String, Map<String, Integer>> result = new HashMap<>();
         for (Map.Entry<String, Player> entry : players.entrySet()) {
@@ -184,6 +191,9 @@ public class GameState {
             if (isValidMove(playerId, ticket, currentPosition, newPosition)) {
                 // apply move
                 getPlayer(playerId).useTicket(ticket);
+                if (getPlayer(playerId).isMrX() && ticket != TicketType.DOUBLE) {
+                    mrXMoveHistory.add(ticket);
+                }
                 setPlayerPosition(playerId, newPosition);
 
                 //increment round/change phase

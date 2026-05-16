@@ -8,6 +8,8 @@ import at.aau.serg.websocketdemoserver.lobby.User;
 
 public class MrX extends Player{
 
+    private final int MAX_BLACK_TICKET = 5;
+    private final int MAX_DOUBLE_TICKET = 2;
     private final Map<TicketType, Integer> tickets;
 
     public MrX(User user) {
@@ -18,8 +20,8 @@ public class MrX extends Player{
 
     private void initializeTickets() {
         // Mr. X has infinite regular tickets but a limited number of special tickets.
-        tickets.put(TicketType.BLACK, 5);
-        tickets.put(TicketType.DOUBLE, 2);
+        tickets.put(TicketType.BLACK, MAX_BLACK_TICKET);
+        tickets.put(TicketType.DOUBLE, MAX_DOUBLE_TICKET);
     }
 
     @Override

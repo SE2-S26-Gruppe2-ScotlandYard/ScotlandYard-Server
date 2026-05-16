@@ -17,7 +17,8 @@ public class GameStateMapper {
                 gameState.getRoundController().isDoubleMoveActive(),
                 gameState.getRoundController().getMrxMovesRemaining(),
                 gameState.getPlayerTickets(),
-                gameState.getMrXSpecialTickets()
+                gameState.getMrXSpecialTickets(),
+                gameState.getMrXMoveHistory()
         );
     }
 }
