@@ -202,12 +202,16 @@ public class GameState {
     }
 
     private boolean isValidMove(String playerId, TicketType ticket, int fromPosition, int toPosition) {
-        if (getPlayer(playerId).hasTicket(ticket)) {
-            Connection toCheck = new Connection(toPosition, ticket);
-            return board.getStation(fromPosition).getConnections().contains(toCheck);
+        if (!getPlayer(playerId).hasTicket(ticket)) {
+            return false;
         }
 
-        return false;
+        if (ticket == TicketType.BLACK) {
+            return board.getStation(fromPosition).getConnections().stream().anyMatch(c -> c.to() == toPosition);
+        }
+
+        Connection toCheck = new Connection(toPosition, ticket);
+        return board.getStation(fromPosition).getConnections().contains(toCheck);
     }
 
     public boolean isCaught() {
