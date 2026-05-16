@@ -18,7 +18,8 @@ public class GameStateMapper {
                 gameState.getRoundController().getMrxMovesRemaining(),
                 gameState.getPlayerTickets(),
                 gameState.getMrXSpecialTickets(),
-                gameState.getMrXMoveHistory()
+                gameState.getMrXMoveHistory(),
+                gameState.getMrXRevealedPositions()
         );
     }
 }

@@ -29,6 +29,8 @@ public class GameState {
     public static final int MAX_ROUNDS = 22;
     private final Random RANDOM = new Random();     //NOSONAR not used in secure contexts
     private final List<TicketType> mrXMoveHistory = new ArrayList<>(MAX_ROUNDS + 2);    // 2 = MAX_DOUBLE_TICKET
+    private static final Set<Integer> REVEAL_ROUNDS = Set.of(3, 8, 13, 18);
+    private final Map<Integer, Integer> mrXRevealedPositions = new HashMap<>();
 
     public GameState (String gameId) {
         this.gameId = gameId;
@@ -116,6 +118,29 @@ public class GameState {
         playerPositions.put(playerId, position);
     }
 
+    private void recordMrXMove(String playerId, TicketType ticket) {
+        if (getPlayer(playerId).isMrX() && ticket != TicketType.DOUBLE) {
+            mrXMoveHistory.add(ticket);
+        }
+    }
+
+    private void recordRevealedPosition(String playerId) {
+        if (getPlayer(playerId).isMrX()) {
+            int round = getCurrentRound();
+            if (REVEAL_ROUNDS.contains(round)) {
+                mrXRevealedPositions.put(round, playerPositions.get(playerId));
+            }
+        }
+    }
+
+    private void incrementRoundOrChangePhase(String playerId) {
+        if (getPlayer(playerId).isMrX()) {
+            roundController.recordMrXMove();
+        } else {
+            roundController.recordDetectiveMove(playerId);
+        }
+    }
+
     public Integer getMrXPosition() {
         return playerPositions.get(mrXId);
     }
@@ -177,6 +202,10 @@ public class GameState {
         return result;
     }
 
+    public Map<Integer, Integer> getMrXRevealedPositions() {
+        return Collections.unmodifiableMap(mrXRevealedPositions);
+    }
+
     public boolean movePlayer(String playerId, TicketType ticket, int newPosition) {
         try {
             if (!players.containsKey(playerId)) {   // player has to exist to move
@@ -191,18 +220,13 @@ public class GameState {
             if (isValidMove(playerId, ticket, currentPosition, newPosition)) {
                 // apply move
                 getPlayer(playerId).useTicket(ticket);
-                if (getPlayer(playerId).isMrX() && ticket != TicketType.DOUBLE) {
-                    mrXMoveHistory.add(ticket);
-                }
+
+                recordMrXMove(playerId, ticket);
+                recordRevealedPosition(playerId);
+
                 setPlayerPosition(playerId, newPosition);
 
-                //increment round/change phase
-                if (getPlayer(playerId).isMrX()) {
-                    roundController.recordMrXMove();
-                } else {
-                    roundController.recordDetectiveMove(playerId);
-                }
-
+                incrementRoundOrChangePhase(playerId);
                 return true;
             }
         } catch (Exception e) {

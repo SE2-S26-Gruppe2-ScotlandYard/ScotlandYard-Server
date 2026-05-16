@@ -20,4 +20,5 @@ public class GameStateDto {
     private Map<String, Map<String, Integer>> playerTickets;    // playerId -> (ticketType -> count)
     private Map<String, Integer> mrXSpecialTickets;             // only BLACK and DOUBLE
     private List<String> mrXMoveHistory;
+    private Map<Integer, Integer> mrXRevealedPositions;
 }
