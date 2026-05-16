@@ -34,33 +34,6 @@ public class GameState {
         this.board = Board.getInstance();
     }
 
-    public void initializeFromLobby(Lobby lobby) {
-        if (!lobby.canStartGame()) {
-            throw new IllegalStateException("Lobby is not ready to start the game");
-        }
-
-        for (User user : lobby.getUsers()) {
-            Role role = lobby.getSelectedRole(user.id());
-
-            Player player;
-            if (role == Role.MRX) {
-                player = new MrX(user);       // new Mr. X
-                this.mrXId = user.id();
-            } else {
-                player = new Detective(user); // new Detective
-            }
-
-            // tell the RoundController which PlayerIDs belong to detectives
-            Set<String> detectiveIds = players.keySet().stream()
-                    .filter(id -> !id.equals(mrXId))
-                    .collect(Collectors.toSet());
-            roundController.initDetectives(detectiveIds);
-
-            players.put(user.id(), player);
-        }
-
-    }
-
     /**
      * Initializes players directly from the lobby's current user list and roles,
      * without enforcing canStartGame() conditions. Useful when the game is started

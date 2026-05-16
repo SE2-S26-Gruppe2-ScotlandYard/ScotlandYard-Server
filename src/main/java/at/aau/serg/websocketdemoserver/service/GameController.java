@@ -8,17 +8,11 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 public class GameController {
 
-    private static GameController controllerInstance = null;
     private final Map<String, GameState> activeGames = new ConcurrentHashMap<>();
 
-    public static GameController getInstance() {
-        if (controllerInstance == null) {
-            controllerInstance = new GameController();
-        }
-        return controllerInstance;
-    }
     public void addGame(String gameId, GameState gameState) {
         activeGames.put(gameId, gameState);
+        printAllGames();
     }
 
     public GameState getGame(String gameId) {
@@ -28,4 +22,18 @@ public class GameController {
     public void removeGame(String gameId) {
         activeGames.remove(gameId);
     }
+
+    //TEST
+    private void printAllGames() {
+        System.out.println("\n=== AKTUELL LAUFENDE SPIELE (" + activeGames.size() + ") ===");
+        if (activeGames.isEmpty()) {
+            System.out.println("Keine Spiele laufend.");
+        } else {
+            for (GameState g : activeGames.values()) {
+                System.out.println("- ID: " + g.getGameId());
+            }
+        }
+        System.out.println("=====================================\n");
+    }
+//TEST
 }
