@@ -146,6 +146,30 @@ public class GameState {
         return roundController.getCurrentPhase();
     }
 
+    public Map<String, Map<String, Integer>> getPlayerTickets() {
+        Map<String, Map<String, Integer>> result = new HashMap<>();
+        for (Map.Entry<String, Player> entry : players.entrySet()) {
+            Map<String, Integer> ticketMap = new HashMap<>();
+            for (Map.Entry<TicketType, Integer> t : entry.getValue().getTickets().entrySet()) {
+                ticketMap.put(t.getKey().name(), t.getValue());
+            }
+            result.put(entry.getKey(), ticketMap);
+        }
+        return result;
+    }
+
+    public Map<String, Integer> getMrXSpecialTickets() {
+        Player mrX = players.get(mrXId);
+        if (mrX == null) return Collections.emptyMap();
+        Map<String, Integer> result = new HashMap<>();
+        Map<TicketType, Integer> tickets = mrX.getTickets();
+        if (tickets.containsKey(TicketType.BLACK))
+            result.put("BLACK", tickets.get(TicketType.BLACK));
+        if (tickets.containsKey(TicketType.DOUBLE))
+            result.put("DOUBLE", tickets.get(TicketType.DOUBLE));
+        return result;
+    }
+
     public boolean movePlayer(String playerId, TicketType ticket, int newPosition) {
         try {
             if (!players.containsKey(playerId)) {   // player has to exist to move

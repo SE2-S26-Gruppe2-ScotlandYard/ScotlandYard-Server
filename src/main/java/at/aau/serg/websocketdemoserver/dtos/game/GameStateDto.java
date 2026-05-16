@@ -16,4 +16,6 @@ public class GameStateDto {
     private Integer mrXPosition;
     private boolean doubleMoveActive;
     private int mrxMovesRemaining;
+    private Map<String, Map<String, Integer>> playerTickets;    // playerId -> (ticketType -> count)
+    private Map<String, Integer> mrXSpecialTickets;             // only BLACK and DOUBLE
 }
