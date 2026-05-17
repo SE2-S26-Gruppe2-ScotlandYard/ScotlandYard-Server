@@ -1,7 +1,8 @@
 package at.aau.serg.websocketdemoserver.websocket.broker;
 
-import at.aau.serg.websocketdemoserver.dtos.StartPositionRequest;
-import at.aau.serg.websocketdemoserver.dtos.StartPositionResponse;
+import at.aau.serg.websocketdemoserver.dtos.game.GameStateDto;
+import at.aau.serg.websocketdemoserver.dtos.game.StartPositionRequest;
+import at.aau.serg.websocketdemoserver.dtos.game.StartPositionResponse;
 import at.aau.serg.websocketdemoserver.dtos.StompMessage;
 import at.aau.serg.websocketdemoserver.dtos.lobby.*;
 import at.aau.serg.websocketdemoserver.dtos.movement.MovementMessage;
@@ -12,9 +13,11 @@ import at.aau.serg.websocketdemoserver.gamelogic.player.TicketType;
 import at.aau.serg.websocketdemoserver.gamelogic.turn.TurnType;
 import at.aau.serg.websocketdemoserver.lobby.Lobby;
 import at.aau.serg.websocketdemoserver.lobby.User;
+import at.aau.serg.websocketdemoserver.mapper.GameStateMapper;
 import at.aau.serg.websocketdemoserver.service.GameController;
 import at.aau.serg.websocketdemoserver.service.LobbyService;
 import at.aau.serg.websocketdemoserver.service.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
@@ -28,13 +31,24 @@ public class WebSocketBrokerController {
 
     private static final String TOPIC_GAME = "/topic/game/";
 
-    private final GameController gameController = GameController.getInstance();
-    private final LobbyService lobbyService = new LobbyService();
+    private final GameController gameController;
+    private final LobbyService lobbyService;
     private final SimpMessagingTemplate messagingTemplate;
-    private final UserService userService = new UserService();
+    private final UserService userService;
 
+    @Autowired
     public WebSocketBrokerController(SimpMessagingTemplate messagingTemplate) {
+        this(messagingTemplate, GameController.getInstance(), new LobbyService(), new UserService());
+    }
+
+    public WebSocketBrokerController(SimpMessagingTemplate messagingTemplate,
+                                     GameController gameController,
+                                     LobbyService lobbyService,
+                                     UserService userService) {
         this.messagingTemplate = messagingTemplate;
+        this.gameController = gameController;
+        this.lobbyService = lobbyService;
+        this.userService = userService;
     }
 
     // 1. Private Antworten an den Auslöser über das dedizierte Player-Topic
@@ -57,7 +71,8 @@ public class WebSocketBrokerController {
     }
 
     private void broadcastGameState(String gameId, GameState gameState) {
-        messagingTemplate.convertAndSend("/topic/game/" + gameId + "/movements", gameState);
+        GameStateDto dto = GameStateMapper.toDto(gameState);
+        messagingTemplate.convertAndSend("/topic/game/" + gameId + "/movements", dto);
     }
 
     private void broadcastGameOver(String gameId, String result) {
@@ -67,7 +82,8 @@ public class WebSocketBrokerController {
     @MessageMapping("/hello")
     @SendTo("/topic/hello-response")
     public String handleHello(String text) {
-        return "echo from broker: " + text;
+        String response = "echo from broker: " + text;
+        return response;
     }
 
     @MessageMapping("/object")
@@ -76,17 +92,19 @@ public class WebSocketBrokerController {
         return msg;
     }
 
-    // Login läuft weiterhin über SendToUser (interne Session), das funktioniert zuverlässig
     @MessageMapping("/user/connect")
     @SendToUser("/topic/user-response")
     public UserConnectResponse handleUserConnect(UserConnectMessage message) {
         try {
             User user = userService.registerUser(message.getNickName());
-            return new UserConnectResponse(true, "User registered", user);
+            UserConnectResponse response = new UserConnectResponse(true, "User registered", user);
+            return response;
         } catch (IllegalArgumentException e) {
-            return new UserConnectResponse(false, e.getMessage(), null);
+            UserConnectResponse response = new UserConnectResponse(false, e.getMessage(), null);
+            return response;
         } catch (Exception e) {
-            return new UserConnectResponse(false, "Internal Server Error", null);
+            UserConnectResponse response = new UserConnectResponse(false, "Internal Server Error", null);
+            return response;
         }
     }
 
@@ -235,20 +253,33 @@ public class WebSocketBrokerController {
 
     @MessageMapping("/lobby/startGame")
     public void handleStartGame(StartGameMessage message) {
-        if (message == null) return;
+        if (message == null) {
+            return;
+        }
         try {
             Lobby lobby = lobbyService.getLobby(message.getLobbyId());
             if (lobby == null) throw new IllegalArgumentException("Lobby not found");
             if (!lobby.getHostId().equals(message.getRequesterId()))
                 throw new IllegalStateException("Only host can start the game");
 
+
             GameState gameState = new GameState(lobby.getId());
             gameState.initializePlayersFromLobby(lobby);
             gameController.addGame(lobby.getId(), gameState);
 
             broadcastToSpecificLobby(lobby.getId(), new LobbyResponse(true, "GAME_STARTED", lobby.getId(), lobby));
+
+            broadcastGameState(lobby.getId(), gameState);
         } catch (Exception e) {
             sendToUser(message.getRequesterId(), new LobbyResponse(false, e.getMessage(), message.getLobbyId(), null));
+        }
+    }
+
+    @MessageMapping("/game/{gameId}/state")
+    public void handleGetGameState(@DestinationVariable String gameId) {
+        GameState gameState = gameController.getGame(gameId);
+        if (gameState != null) {
+            broadcastGameState(gameId, gameState);
         }
     }
 
@@ -297,6 +328,7 @@ public class WebSocketBrokerController {
 
     @MessageMapping("/game/{gameId}/move")
     public void handleMove(@DestinationVariable String gameId, @Payload MovementMessage movement) {
+
         if (movement == null) {
             sendMoveResponse(gameId, new MovementResponse(false, "NULL MESSAGE", 0, null));
             return;
@@ -381,6 +413,8 @@ public class WebSocketBrokerController {
                 sendToUser(movement.getPlayerId(), new MovementResponse(false, "Invalid move", gameState.getPlayerPosition(movement.getPlayerId()), null));
                 return;
             }
+
+            System.out.println("[DEBUG] Move executed successfully, new position=" + gameState.getPlayerPosition(movement.getPlayerId()));
 
             switch (gameState.checkGameResult()) {
                 case DETECTIVES_WIN -> {

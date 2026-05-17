@@ -42,20 +42,9 @@ class GameStateTest {
     }
 
     @Test
-    void testInitializeFromLobbyWhenLobbyCannotStart() {
-        when(mockLobby.canStartGame()).thenReturn(false);
-
-        IllegalStateException exception = assertThrows(IllegalStateException.class, () -> {
-            gameState.initializeFromLobby(mockLobby);
-        });
-
-        assertEquals("Lobby is not ready to start the game", exception.getMessage());
-    }
-
-    @Test
-    void testInitializeFromLobbySuccess() {
+    void testInitializePlayersFromLobbySuccess() {
         setupBasicMrxLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
 
         assertNotNull(gameState.getPlayer(hostUser.id()));
         assertNotNull(gameState.getPlayer(detectiveUser1.id()));
@@ -72,7 +61,7 @@ class GameStateTest {
         when(mockLobby.getUsers()).thenReturn(List.of(hostUser, detectiveUser1, detectiveUser2, mrXUser));
         when(mockLobby.getSelectedRole(anyString())).thenReturn(Role.DETECTIVE);
         when(mockLobby.getSelectedRole(mrXUser.id())).thenReturn(Role.MRX);
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
 
         // positions are assigned on demand, not automatically
         int pos1 = gameState.assignStartPosition(hostUser.id());
@@ -89,7 +78,7 @@ class GameStateTest {
     @Test
     void testSetPlayerPositionValid() {
         setupBasicLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
 
         gameState.setPlayerPosition(hostUser.id(), 42);
 
@@ -99,7 +88,7 @@ class GameStateTest {
     @Test
     void testSetPlayerPositionInvalidBelowRange() {
         setupBasicLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
         String playerId = hostUser.id();
 
         IllegalArgumentException exception = assertThrows(
@@ -113,7 +102,7 @@ class GameStateTest {
     @Test
     void testSetPlayerPositionInvalidAboveRange() {
         setupBasicLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
         String playerId = hostUser.id();
 
         IllegalArgumentException exception = assertThrows(
@@ -139,7 +128,7 @@ class GameStateTest {
         when(mockLobby.getUsers()).thenReturn(List.of(mrXUser, detectiveUser1));
         when(mockLobby.getSelectedRole(mrXUser.id())).thenReturn(Role.MRX);
         when(mockLobby.getSelectedRole(detectiveUser1.id())).thenReturn(Role.DETECTIVE);
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
 
         gameState.assignStartPosition(mrXUser.id());
         gameState.assignStartPosition(detectiveUser1.id());
@@ -153,7 +142,7 @@ class GameStateTest {
     @Test
     void testGetMrXPositionNoMrX() {
         setupDetectiveLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
 
         Integer mrXPosition = gameState.getMrXPosition();
 
@@ -163,7 +152,7 @@ class GameStateTest {
     @Test
     void testMultiplePlayersSamePosition() {
         setupBasicLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
 
         gameState.setPlayerPosition(hostUser.id(), 100);
         gameState.setPlayerPosition(detectiveUser1.id(), 100);
@@ -175,7 +164,7 @@ class GameStateTest {
     @Test
     void testUpdatePlayerPosition() {
         setupBasicLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
 
         gameState.setPlayerPosition(hostUser.id(), 10);
         assertEquals(10, gameState.getPlayerPosition(hostUser.id()));
@@ -187,7 +176,7 @@ class GameStateTest {
     @Test
     void testStartPositionsAreWithinFullBoardRange() {
         setupDetectiveLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
 
         for (User user : List.of(hostUser, detectiveUser1, detectiveUser2)) {
             int position = gameState.assignStartPosition(user.id());
@@ -198,7 +187,7 @@ class GameStateTest {
     @Test
     void testPlayerPositionsAfterInitialization() {
         setupBasicLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
 
         for (User user : List.of(hostUser, detectiveUser1)) {
             int pos = gameState.assignStartPosition(user.id());
@@ -209,7 +198,7 @@ class GameStateTest {
     @Test
     void testDifferentStartPositionsForDifferentPlayers() {
         setupDetectiveLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
 
         Integer pos1 = gameState.assignStartPosition(hostUser.id());
         Integer pos2 = gameState.assignStartPosition(detectiveUser1.id());
@@ -227,7 +216,7 @@ class GameStateTest {
     @Test
     void testGetDetectivePositionsExcludesMrX() {
         setupBasicMrxLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
 
         Map<String, Integer> detectivePositions = gameState.getDetectivePositions();
 
@@ -241,7 +230,7 @@ class GameStateTest {
     @Test
     void testGetDetectivePositionsNoDetectives() {
         setupOnlyMrxLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
 
         Map<String, Integer> detectivePositions = gameState.getDetectivePositions();
 
@@ -252,7 +241,7 @@ class GameStateTest {
     @Test
     void testGetDetectivePositionsReturnsUnmodifiableMap() {
         setupBasicMrxLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
 
         Map<String, Integer> detectivePositions = gameState.getDetectivePositions();
 
@@ -264,7 +253,7 @@ class GameStateTest {
     @Test
     void testGetDetectivePositionsUpdates() {
         setupBasicMrxLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
 
         // update detective position
         gameState.setPlayerPosition(hostUser.id(), 150);
@@ -276,7 +265,7 @@ class GameStateTest {
     @Test
     void testGetDetectivePositionsAllDetectives() {
         setupDetectiveLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
 
         // set specific positions
         gameState.setPlayerPosition(hostUser.id(), 10);
@@ -296,7 +285,7 @@ class GameStateTest {
     @Test
     void testMovePlayerPlayerDoesNotExist() {
         setupBasicLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
 
         boolean result = gameState.movePlayer("nonExistentPlayer", TicketType.WALKING, 50);
 
@@ -306,7 +295,7 @@ class GameStateTest {
     @Test
     void testMovePlayerPlayerHasNoPosition() {
         setupBasicLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
 
         // remove position
         gameState.playerPositions.remove(hostUser.id());
@@ -319,7 +308,7 @@ class GameStateTest {
     @Test
     void testMovePlayerInvalidMoveNoTicket() {
         setupBasicLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
         gameState.assignStartPosition(hostUser.id());
 
         int currentPos = gameState.getPlayerPosition(hostUser.id());
@@ -334,7 +323,7 @@ class GameStateTest {
     @Test
     void testMovePlayerInvalidMoveNoConnection() {
         setupBasicLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
 
         gameState.setPlayerPosition(hostUser.id(), 1);
 
@@ -348,7 +337,7 @@ class GameStateTest {
     @Test
     void testMovePlayerDeductsTicket() {
         setupBasicLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
 
         // set to a known position with connections
         gameState.setPlayerPosition(hostUser.id(), 2);
@@ -370,7 +359,7 @@ class GameStateTest {
     @Test
     void testMovePlayerInsufficientTickets() {
         setupBasicLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
 
         // set to a known position with connections
         gameState.setPlayerPosition(hostUser.id(), 2);
@@ -400,7 +389,7 @@ class GameStateTest {
     @Test
     void testMrXMoveWithBlackTicket() {
         setupOnlyMrxLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
 
         // set to a known position
         gameState.setPlayerPosition(mrXUser.id(), 108);
@@ -419,7 +408,7 @@ class GameStateTest {
     @Test
     void testMrXMoveUnlimitedRegularTickets() {
         setupOnlyMrxLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
 
         // set to a known position
         gameState.setPlayerPosition(mrXUser.id(), 2);
@@ -441,7 +430,7 @@ class GameStateTest {
     @Test
     void testMovePlayerSameStation() {
         setupBasicLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
         gameState.assignStartPosition(hostUser.id());
 
         int currentPos = gameState.getPlayerPosition(hostUser.id());
@@ -455,7 +444,7 @@ class GameStateTest {
     @Test
     void testMovePlayerNegativePosition() {
         setupBasicLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
 
         gameState.movePlayer(hostUser.id(), TicketType.WALKING, -5);
 
@@ -465,7 +454,7 @@ class GameStateTest {
     @Test
     void testMovePlayerPositionOutOfRange() {
         setupBasicLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
 
         gameState.movePlayer(hostUser.id(), TicketType.WALKING, 300);
 
@@ -475,7 +464,7 @@ class GameStateTest {
     @Test
     void testDetectiveCannotUseBlackTicket() {
         setupBasicLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
 
         gameState.setPlayerPosition(hostUser.id(), 108);
         int currentPos = gameState.getPlayerPosition(hostUser.id());
@@ -489,7 +478,7 @@ class GameStateTest {
     @Test
     void testMovePlayerWithDifferentTicketTypes() {
         setupBasicLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
 
         gameState.setPlayerPosition(hostUser.id(), 77);
 
@@ -520,7 +509,7 @@ class GameStateTest {
     @Test
     void testMrXCollisionWithDetective() {
         setupBasicMrxLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
 
         // set same position for Mr.X and a detective
         gameState.setPlayerPosition(mrXUser.id(), 42);
@@ -532,7 +521,7 @@ class GameStateTest {
     @Test
     void testMrXNoCollision() {
         setupBasicMrxLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
 
         // set different positions
         gameState.setPlayerPosition(mrXUser.id(), 10);
@@ -544,7 +533,7 @@ class GameStateTest {
     @Test
     void testGetCurrentRound() {
         setupBasicLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
 
         int currentRound = gameState.getCurrentRound();
         assertTrue(currentRound >= 0);
@@ -554,7 +543,7 @@ class GameStateTest {
     @Test
     void checkGameOver_ongoing() {
         setupBasicMrxLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
         gameState.setPlayerPosition(mrXUser.id(), 10);
         gameState.setPlayerPosition(hostUser.id(), 20);
         gameState.setPlayerPosition(detectiveUser1.id(), 30);
@@ -565,7 +554,7 @@ class GameStateTest {
     @Test
     void checkGameOver_mrxCaught() {
         setupBasicMrxLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
         gameState.setPlayerPosition(mrXUser.id(), 42);
         gameState.setPlayerPosition(hostUser.id(), 42);      // same field!
 
@@ -576,7 +565,7 @@ class GameStateTest {
     void checkGameOver_detectivesWinLastRound() {
         // past MAX_ROUNDS, if MrX is caught, DETECTIVES_WIN
         setupBasicMrxLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
 
         while (gameState.getCurrentRound() <= GameState.MAX_ROUNDS) {
             gameState.getRoundController().getCurrentRound().incrementAndGet();
@@ -591,7 +580,7 @@ class GameStateTest {
     @Test
     void checkGameOver_pastMaxRoundsNotCaught() {
         setupBasicMrxLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
         while (gameState.getCurrentRound() <= GameState.MAX_ROUNDS) {
             gameState.getRoundController().getCurrentRound().incrementAndGet();
         }
@@ -605,7 +594,7 @@ class GameStateTest {
     @Test
     void checkGameOver_atMaxRoundsExactly() {
         setupBasicMrxLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
         while (gameState.getCurrentRound() < GameState.MAX_ROUNDS) {
             gameState.getRoundController().getCurrentRound().incrementAndGet();
         }
@@ -649,7 +638,7 @@ class GameStateTest {
     @Test
     void testStartPositionsAreUnique() {
         setupDetectiveLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
 
         int pos1 = gameState.assignStartPosition(hostUser.id());
         int pos2 = gameState.assignStartPosition(detectiveUser1.id());
@@ -664,7 +653,7 @@ class GameStateTest {
     @Test
     void testAssignStartPosition_inRange() {
         setupBasicLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
 
         int pos = gameState.assignStartPosition(hostUser.id());
 
@@ -674,7 +663,7 @@ class GameStateTest {
     @Test
     void testAssignStartPosition_samePlayerGetsSamePosition() {
         setupBasicLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
 
         int pos1 = gameState.assignStartPosition(hostUser.id());
         int pos2 = gameState.assignStartPosition(hostUser.id());
@@ -685,7 +674,7 @@ class GameStateTest {
     @Test
     void testAssignStartPosition_twoPlayersGetDifferentPositions() {
         setupBasicLobby();
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
 
         int pos1 = gameState.assignStartPosition(hostUser.id());
         int pos2 = gameState.assignStartPosition(detectiveUser1.id());

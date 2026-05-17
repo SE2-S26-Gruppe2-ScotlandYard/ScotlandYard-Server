@@ -8,15 +8,9 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 public class GameController {
 
-    private static GameController controllerInstance = null;
+    private static GameController gameController;
     private final Map<String, GameState> activeGames = new ConcurrentHashMap<>();
 
-    public static GameController getInstance() {
-        if (controllerInstance == null) {
-            controllerInstance = new GameController();
-        }
-        return controllerInstance;
-    }
     public void addGame(String gameId, GameState gameState) {
         activeGames.put(gameId, gameState);
     }
@@ -27,5 +21,12 @@ public class GameController {
 
     public void removeGame(String gameId) {
         activeGames.remove(gameId);
+    }
+
+    public static GameController getInstance() {
+        if (gameController == null) {
+            gameController = new GameController();
+        }
+        return gameController;
     }
 }

@@ -1,4 +1,4 @@
-package at.aau.serg.websocketdemoserver.dtos;
+package at.aau.serg.websocketdemoserver.dtos.game;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

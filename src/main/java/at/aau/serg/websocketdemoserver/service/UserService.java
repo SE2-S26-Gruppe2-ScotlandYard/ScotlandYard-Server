@@ -29,29 +29,12 @@ public class UserService {
 
         activeUsers.put(lowerCaseName, newUser);
 
-        printAllUsers();
-
         return newUser;
     }
 
     public synchronized void unregisterUser(String nickName) {
         if (nickName != null && !nickName.trim().isEmpty()) {
             activeUsers.remove(nickName.trim().toLowerCase());
-            printAllUsers();
         }
     }
-
-    //TEST
-    private void printAllUsers() {
-        System.out.println("\n=== AKTUELL REGISTRIERTE USER (" + activeUsers.size() + ") ===");
-        if (activeUsers.isEmpty()) {
-            System.out.println("Keine User verbunden.");
-        } else {
-            for (User u : activeUsers.values()) {
-                System.out.println("- ID: " + u.id() + " | Nickname: " + u.nickName());
-            }
-        }
-        System.out.println("=====================================\n");
-    }
-    //TEST
 }

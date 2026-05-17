@@ -28,37 +28,13 @@ public class GameState {
     private String mrXId;
     public static final int MAX_ROUNDS = 22;
     private final Random RANDOM = new Random();     //NOSONAR not used in secure contexts
+    private final List<TicketType> mrXMoveHistory = new ArrayList<>(MAX_ROUNDS + 2);    // 2 = MAX_DOUBLE_TICKET
+    private static final Set<Integer> REVEAL_ROUNDS = Set.of(3, 8, 13, 18);
+    private final Map<Integer, Integer> mrXRevealedPositions = new HashMap<>();
 
     public GameState (String gameId) {
         this.gameId = gameId;
         this.board = Board.getInstance();
-    }
-
-    public void initializeFromLobby(Lobby lobby) {
-        if (!lobby.canStartGame()) {
-            throw new IllegalStateException("Lobby is not ready to start the game");
-        }
-
-        for (User user : lobby.getUsers()) {
-            Role role = lobby.getSelectedRole(user.id());
-
-            Player player;
-            if (role == Role.MRX) {
-                player = new MrX(user);       // new Mr. X
-                this.mrXId = user.id();
-            } else {
-                player = new Detective(user); // new Detective
-            }
-
-            // tell the RoundController which PlayerIDs belong to detectives
-            Set<String> detectiveIds = players.keySet().stream()
-                    .filter(id -> !id.equals(mrXId))
-                    .collect(Collectors.toSet());
-            roundController.initDetectives(detectiveIds);
-
-            players.put(user.id(), player);
-        }
-
     }
 
     /**
@@ -142,6 +118,29 @@ public class GameState {
         playerPositions.put(playerId, position);
     }
 
+    private void recordMrXMove(String playerId, TicketType ticket) {
+        if (getPlayer(playerId).isMrX() && ticket != TicketType.DOUBLE) {
+            mrXMoveHistory.add(ticket);
+        }
+    }
+
+    private void recordRevealedPosition(String playerId) {
+        if (getPlayer(playerId).isMrX()) {
+            int round = getCurrentRound();
+            if (REVEAL_ROUNDS.contains(round)) {
+                mrXRevealedPositions.put(round, playerPositions.get(playerId));
+            }
+        }
+    }
+
+    private void incrementRoundOrChangePhase(String playerId) {
+        if (getPlayer(playerId).isMrX()) {
+            roundController.recordMrXMove();
+        } else {
+            roundController.recordDetectiveMove(playerId);
+        }
+    }
+
     public Integer getMrXPosition() {
         return playerPositions.get(mrXId);
     }
@@ -173,6 +172,40 @@ public class GameState {
         return roundController.getCurrentPhase();
     }
 
+    public List<String> getMrXMoveHistory() {
+        return mrXMoveHistory.stream()
+                .map(Enum::name)
+                .toList();
+    }
+
+    public Map<String, Map<String, Integer>> getPlayerTickets() {
+        Map<String, Map<String, Integer>> result = new HashMap<>();
+        for (Map.Entry<String, Player> entry : players.entrySet()) {
+            Map<String, Integer> ticketMap = new HashMap<>();
+            for (Map.Entry<TicketType, Integer> t : entry.getValue().getTickets().entrySet()) {
+                ticketMap.put(t.getKey().name(), t.getValue());
+            }
+            result.put(entry.getKey(), ticketMap);
+        }
+        return result;
+    }
+
+    public Map<String, Integer> getMrXSpecialTickets() {
+        Player mrX = players.get(mrXId);
+        if (mrX == null) return Collections.emptyMap();
+        Map<String, Integer> result = new HashMap<>();
+        Map<TicketType, Integer> tickets = mrX.getTickets();
+        if (tickets.containsKey(TicketType.BLACK))
+            result.put("BLACK", tickets.get(TicketType.BLACK));
+        if (tickets.containsKey(TicketType.DOUBLE))
+            result.put("DOUBLE", tickets.get(TicketType.DOUBLE));
+        return result;
+    }
+
+    public Map<Integer, Integer> getMrXRevealedPositions() {
+        return Collections.unmodifiableMap(mrXRevealedPositions);
+    }
+
     public boolean movePlayer(String playerId, TicketType ticket, int newPosition) {
         try {
             if (!players.containsKey(playerId)) {   // player has to exist to move
@@ -187,15 +220,13 @@ public class GameState {
             if (isValidMove(playerId, ticket, currentPosition, newPosition)) {
                 // apply move
                 getPlayer(playerId).useTicket(ticket);
+
+                recordMrXMove(playerId, ticket);
+                recordRevealedPosition(playerId);
+
                 setPlayerPosition(playerId, newPosition);
 
-                //increment round/change phase
-                if (getPlayer(playerId).isMrX()) {
-                    roundController.recordMrXMove();
-                } else {
-                    roundController.recordDetectiveMove(playerId);
-                }
-
+                incrementRoundOrChangePhase(playerId);
                 return true;
             }
         } catch (Exception e) {
@@ -205,12 +236,16 @@ public class GameState {
     }
 
     private boolean isValidMove(String playerId, TicketType ticket, int fromPosition, int toPosition) {
-        if (getPlayer(playerId).hasTicket(ticket)) {
-            Connection toCheck = new Connection(toPosition, ticket);
-            return board.getStation(fromPosition).getConnections().contains(toCheck);
+        if (!getPlayer(playerId).hasTicket(ticket)) {
+            return false;
         }
 
-        return false;
+        if (ticket == TicketType.BLACK) {
+            return board.getStation(fromPosition).getConnections().stream().anyMatch(c -> c.to() == toPosition);
+        }
+
+        Connection toCheck = new Connection(toPosition, ticket);
+        return board.getStation(fromPosition).getConnections().contains(toCheck);
     }
 
     public boolean isCaught() {

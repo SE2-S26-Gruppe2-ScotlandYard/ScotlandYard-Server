@@ -1,13 +1,14 @@
 package at.aau.serg.websocketdemoserver.websocket.broker;
 
-import at.aau.serg.websocketdemoserver.dtos.StartPositionRequest;
-import at.aau.serg.websocketdemoserver.dtos.StartPositionResponse;
+import at.aau.serg.websocketdemoserver.dtos.game.StartPositionRequest;
+import at.aau.serg.websocketdemoserver.dtos.game.StartPositionResponse;
 import at.aau.serg.websocketdemoserver.dtos.StompMessage;
 import at.aau.serg.websocketdemoserver.dtos.lobby.*;
 import at.aau.serg.websocketdemoserver.dtos.movement.MovementMessage;
 import at.aau.serg.websocketdemoserver.dtos.movement.MovementResponse;
 import at.aau.serg.websocketdemoserver.gamelogic.GameState;
 import at.aau.serg.websocketdemoserver.gamelogic.player.TicketType;
+import at.aau.serg.websocketdemoserver.gamelogic.turn.TurnType;
 import org.junit.jupiter.api.BeforeEach;
 import at.aau.serg.websocketdemoserver.lobby.Lobby;
 import at.aau.serg.websocketdemoserver.lobby.Role;
@@ -18,6 +19,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.mockito.ArgumentCaptor;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -538,6 +540,215 @@ class WebSocketBrokerControllerTest {
     }
 
     @Test
+    void testHandleUserConnect_emptyNickname_returnsError() {
+        UserConnectMessage message = new UserConnectMessage();
+        message.setNickName("");
+        UserConnectResponse response = controller.handleUserConnect(message);
+        assertFalse(response.isSuccess());
+        assertEquals("Nickname cannot be empty", response.getMessage());
+        assertNull(response.getUser());
+    }
+
+    @Test
+    void testHandleUserConnect_nullNickname_returnsError() {
+        UserConnectMessage message = new UserConnectMessage();
+        message.setNickName(null);
+        UserConnectResponse response = controller.handleUserConnect(message);
+        assertFalse(response.isSuccess());
+        assertNull(response.getUser());
+    }
+
+    @Test
+    void testHandleUserConnect_duplicateNickname_returnsError() {
+        UserConnectMessage first = new UserConnectMessage();
+        first.setNickName("UniqueUser_" + System.nanoTime());
+        controller.handleUserConnect(first);
+
+        UserConnectMessage second = new UserConnectMessage();
+        second.setNickName(first.getNickName());
+        UserConnectResponse response = controller.handleUserConnect(second);
+        assertFalse(response.isSuccess());
+        assertEquals("Nickname already taken", response.getMessage());
+    }
+
+    @Test
+    void testHandleGetGameState_existingGame_broadcastsState() {
+        String gameId = "state-test-game";
+        GameState gameState = new GameState(gameId);
+        GameController.getInstance().addGame(gameId, gameState);
+
+        controller.handleGetGameState(gameId);
+
+        verify(messagingTemplate, atLeastOnce()).convertAndSend(
+                eq("/topic/game/" + gameId + "/movements"),
+                Optional.ofNullable(any())
+        );
+
+        GameController.getInstance().removeGame(gameId);
+    }
+
+    @Test
+    void testHandleGetGameState_nonExistingGame_doesNotBroadcast() {
+        controller.handleGetGameState("non-existing-game-id");
+
+        verify(messagingTemplate, never()).convertAndSend(
+                eq("/topic/game/non-existing-game-id/movements"),
+                Optional.ofNullable(any())
+        );
+    }
+
+    private GameState setupGameWithPlayers(String gameId, String mrXId, String detectiveId) {
+        GameState gameState = new GameState(gameId);
+        Lobby mockLobby = mock(Lobby.class);
+        User mrXUser = new User(mrXId, "MrX");
+        User detectiveUser = new User(detectiveId, "Det");
+        when(mockLobby.getUsers()).thenReturn(List.of(mrXUser, detectiveUser));
+        when(mockLobby.getSelectedRole(mrXId)).thenReturn(Role.MRX);
+        when(mockLobby.getSelectedRole(detectiveId)).thenReturn(Role.DETECTIVE);
+        gameState.initializePlayersFromLobby(mockLobby);
+        gameState.setPlayerPosition(mrXId, 1);
+        gameState.setPlayerPosition(detectiveId, 50);
+        GameController.getInstance().addGame(gameId, gameState);
+        return gameState;
+    }
+
+    @Test
+    void testHandleMove_playerNotFound_sendsError() {
+        String gameId = "move-noplayer-game";
+        GameState gameState = new GameState(gameId);
+        GameController.getInstance().addGame(gameId, gameState);
+
+        MovementMessage msg = new MovementMessage();
+        msg.setGameId(gameId);
+        msg.setPlayerId("ghost-player");
+        msg.setTicket(TicketType.WALKING);
+        msg.setTargetPosition(5);
+        controller.handleMove(gameId, msg);
+
+        verify(messagingTemplate).convertAndSend(
+                eq("/topic/player/ghost-player"),
+                argThat((MovementResponse r) -> !r.isSuccess())
+        );
+        GameController.getInstance().removeGame(gameId);
+    }
+
+    @Test
+    void testHandleMove_detectiveMovesDuringMrXPhase_sendsError() {
+        String gameId = "move-wrongturn-game";
+        String mrXId = "mrx-wt";
+        String detId = "det-wt";
+        GameState gs = setupGameWithPlayers(gameId, mrXId, detId);
+
+        gs.getRoundController().setCurrentPhase(TurnType.MRX);
+
+        MovementMessage msg = new MovementMessage();
+        msg.setGameId(gameId);
+        msg.setPlayerId(detId);
+        msg.setTicket(TicketType.WALKING);
+        msg.setTargetPosition(51);
+        controller.handleMove(gameId, msg);
+
+        verify(messagingTemplate).convertAndSend(
+                eq("/topic/player/" + detId),
+                argThat((MovementResponse r) -> !r.isSuccess()
+                        && "Not the detectives' turn".equals(r.getMessage()))
+        );
+        GameController.getInstance().removeGame(gameId);
+    }
+
+    @Test
+    void testHandleMove_mrXMovesDuringDetectivePhase_sendsError() {
+        String gameId = "move-mrx-wrongturn";
+        String mrXId = "mrx-dwt";
+        String detId = "det-dwt";
+        GameState gs = setupGameWithPlayers(gameId, mrXId, detId);
+        gs.getRoundController().setCurrentPhase(TurnType.DETECTIVES);
+
+        MovementMessage msg = new MovementMessage();
+        msg.setGameId(gameId);
+        msg.setPlayerId(mrXId);
+        msg.setTicket(TicketType.WALKING);
+        msg.setTargetPosition(2);
+        controller.handleMove(gameId, msg);
+
+        verify(messagingTemplate).convertAndSend(
+                eq("/topic/player/" + mrXId),
+                argThat((MovementResponse r) -> !r.isSuccess()
+                        && "Not Mr. X's turn".equals(r.getMessage()))
+        );
+        GameController.getInstance().removeGame(gameId);
+    }
+
+    @Test
+    void testHandleMove_detectiveAlreadyMoved_sendsError() {
+        String gameId = "move-already-moved";
+        String mrXId = "mrx-am";
+        String detId = "det-am";
+        GameState gs = setupGameWithPlayers(gameId, mrXId, detId);
+        gs.getRoundController().setCurrentPhase(TurnType.DETECTIVES);
+
+        MovementMessage msg = new MovementMessage();
+        msg.setGameId(gameId);
+        msg.setPlayerId(detId);
+        msg.setTicket(TicketType.WALKING);
+        msg.setTargetPosition(51);
+        controller.handleMove(gameId, msg);
+
+        verify(messagingTemplate).convertAndSend(
+                eq("/topic/player/" + detId),
+                argThat((MovementResponse r) -> !r.isSuccess()
+                        && "Detective has already moved this round".equals(r.getMessage()))
+        );
+        GameController.getInstance().removeGame(gameId);
+    }
+
+    @Test
+    void testHandleMove_detectiveUsesDoubleTicket_sendsError() {
+        String gameId = "move-det-double";
+        String mrXId = "mrx-dd";
+        String detId = "det-dd";
+        GameState gs = setupGameWithPlayers(gameId, mrXId, detId);
+        gs.getRoundController().setCurrentPhase(TurnType.DETECTIVES);
+        gs.getRoundController().addPendingDetectives(detId);
+
+        MovementMessage msg = new MovementMessage();
+        msg.setGameId(gameId);
+        msg.setPlayerId(detId);
+        msg.setTicket(TicketType.DOUBLE);
+        msg.setTargetPosition(51);
+        controller.handleMove(gameId, msg);
+
+        verify(messagingTemplate).convertAndSend(
+                eq("/topic/player/" + detId),
+                argThat((MovementResponse r) -> !r.isSuccess()
+                        && "Only Mr. X can use the DOUBLE ticket".equals(r.getMessage()))
+        );
+        GameController.getInstance().removeGame(gameId);
+    }
+
+    @Test
+    void testHandleMove_mrXActivatesDoubleTicket_success() {
+        String gameId = "move-mrx-double";
+        String mrXId = "mrx-double";
+        String detId = "det-double";
+        GameState gs = setupGameWithPlayers(gameId, mrXId, detId);
+        gs.getRoundController().setCurrentPhase(TurnType.MRX);
+
+        MovementMessage msg = new MovementMessage();
+        msg.setGameId(gameId);
+        msg.setPlayerId(mrXId);
+        msg.setTicket(TicketType.DOUBLE);
+        msg.setTargetPosition(0);
+        controller.handleMove(gameId, msg);
+
+        verify(messagingTemplate, atLeastOnce()).convertAndSend(
+                any(String.class),
+                any(Object.class)
+        );
+        GameController.getInstance().removeGame(gameId);
+    }
+
+    @Test
     void testHandleStartPositionRequest_Success() {
         SimpMessagingTemplate template = mock(SimpMessagingTemplate.class);
         WebSocketBrokerController localController = controllerWithMockTemplate(template);
@@ -549,7 +760,7 @@ class WebSocketBrokerControllerTest {
         when(mockLobby.canStartGame()).thenReturn(true);
         when(mockLobby.getUsers()).thenReturn(List.of(player));
         when(mockLobby.getSelectedRole("player-1")).thenReturn(Role.DETECTIVE);
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
         GameController.getInstance().addGame("game-abc", gameState);
 
         StartPositionRequest request = new StartPositionRequest("game-abc", "player-1");

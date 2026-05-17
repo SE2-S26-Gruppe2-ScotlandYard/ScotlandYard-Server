@@ -14,8 +14,9 @@ class GameControllerTest {
 
     @BeforeEach
     void setUp() {
-        gameController = GameController.getInstance();
+        gameController = new GameController();
         mockGameState = mock(GameState.class);
+        when(mockGameState.getGameId()).thenReturn("mockedGame");
     }
 
     @Test
@@ -79,6 +80,11 @@ class GameControllerTest {
     }
 
     @Test
+    void testRemoveGameNonExistent_doesNotThrow() {
+        assertDoesNotThrow(() -> gameController.removeGame("doesNotExist"));
+    }
+
+    @Test
     void testRemoveGameWithNullId() {
         assertThrows(NullPointerException.class, () -> gameController.removeGame(null));
     }
@@ -105,5 +111,16 @@ class GameControllerTest {
     @Test
     void testAddGameWithNullId() {
         assertThrows(NullPointerException.class, () -> gameController.addGame(null, mockGameState));
+    }
+
+    @Test
+    void testGetGame_afterRemoveAll_returnsNull() {
+        gameController.addGame("game1", mockGameState);
+        gameController.addGame("game2", mockGameState);
+        gameController.removeGame("game1");
+        gameController.removeGame("game2");
+
+        assertNull(gameController.getGame("game1"));
+        assertNull(gameController.getGame("game2"));
     }
 }
