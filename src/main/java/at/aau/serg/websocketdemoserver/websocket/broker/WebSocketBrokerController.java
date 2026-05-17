@@ -434,9 +434,6 @@ public class WebSocketBrokerController {
             String extra = (isMrX && gameState.getRoundController().isDoubleMoveActive())
                     ? " (1 move remaining due to double move ticket)" : "";
 
-            if (gameState.getRoundController().isDoubleMoveActive()) {
-            }
-
             sendMoveResponse(gameId, new MovementResponse(true, "Movement successful" + extra, gameState.getPlayerPosition(movement.getPlayerId()), null));
 
         } catch (Exception e) {
