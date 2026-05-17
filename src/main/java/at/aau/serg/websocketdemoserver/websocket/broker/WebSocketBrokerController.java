@@ -536,7 +536,6 @@ public class WebSocketBrokerController {
 
         } catch (Exception e) {
             System.out.println("[DEBUG] Exception during move handling: " + e.getMessage());
-            e.printStackTrace();
             sendToUser(movement.getPlayerId(), new MovementResponse(false, "Error: " + e.getMessage(), 0, null));
         }
     }
