@@ -175,7 +175,7 @@ public class GameState {
     public List<String> getMrXMoveHistory() {
         return mrXMoveHistory.stream()
                 .map(Enum::name)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public Map<String, Map<String, Integer>> getPlayerTickets() {
