@@ -17,6 +17,7 @@ import at.aau.serg.websocketdemoserver.mapper.GameStateMapper;
 import at.aau.serg.websocketdemoserver.service.GameController;
 import at.aau.serg.websocketdemoserver.service.LobbyService;
 import at.aau.serg.websocketdemoserver.service.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
@@ -35,8 +36,9 @@ public class WebSocketBrokerController {
     private final SimpMessagingTemplate messagingTemplate;
     private final UserService userService;
 
+    @Autowired
     public WebSocketBrokerController(SimpMessagingTemplate messagingTemplate) {
-        this(messagingTemplate, new GameController(), new LobbyService(), new UserService());
+        this(messagingTemplate, GameController.getInstance(), new LobbyService(), new UserService());
     }
 
     public WebSocketBrokerController(SimpMessagingTemplate messagingTemplate,

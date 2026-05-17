@@ -76,7 +76,7 @@ class WebSocketBrokerIntegrationTest {
         lobby.selectRole("user3", Role.DETECTIVE);
         lobby.markPlayerReady("user3");
 
-        gameState.initializeFromLobby(lobby);
+        gameState.initializePlayersFromLobby(lobby);
         gameController.addGame(gameId, gameState);
     }
 

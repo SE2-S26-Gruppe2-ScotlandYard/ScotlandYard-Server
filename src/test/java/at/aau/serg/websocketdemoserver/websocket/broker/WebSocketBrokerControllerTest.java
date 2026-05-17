@@ -1,7 +1,7 @@
 package at.aau.serg.websocketdemoserver.websocket.broker;
 
-import at.aau.serg.websocketdemoserver.dtos.StartPositionRequest;
-import at.aau.serg.websocketdemoserver.dtos.StartPositionResponse;
+import at.aau.serg.websocketdemoserver.dtos.game.StartPositionRequest;
+import at.aau.serg.websocketdemoserver.dtos.game.StartPositionResponse;
 import at.aau.serg.websocketdemoserver.dtos.StompMessage;
 import at.aau.serg.websocketdemoserver.dtos.lobby.*;
 import at.aau.serg.websocketdemoserver.dtos.movement.MovementMessage;
@@ -549,7 +549,7 @@ class WebSocketBrokerControllerTest {
         when(mockLobby.canStartGame()).thenReturn(true);
         when(mockLobby.getUsers()).thenReturn(List.of(player));
         when(mockLobby.getSelectedRole("player-1")).thenReturn(Role.DETECTIVE);
-        gameState.initializeFromLobby(mockLobby);
+        gameState.initializePlayersFromLobby(mockLobby);
         GameController.getInstance().addGame("game-abc", gameState);
 
         StartPositionRequest request = new StartPositionRequest("game-abc", "player-1");
