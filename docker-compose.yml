@@ -1,0 +1,6 @@
+services:
+  server:
+    image: ghcr.io/se2-s26-gruppe2-scotlandyard/scotlandyard-server:latest
+    restart: unless-stopped
+    ports:
+      - "53206:8080"
