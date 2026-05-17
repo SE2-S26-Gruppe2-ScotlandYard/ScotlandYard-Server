@@ -30,13 +30,23 @@ public class WebSocketBrokerController {
 
     private static final String TOPIC_GAME = "/topic/game/";
 
-    private final GameController gameController = new GameController();
-    private final LobbyService lobbyService = new LobbyService();
+    private final GameController gameController;
+    private final LobbyService lobbyService;
     private final SimpMessagingTemplate messagingTemplate;
-    private final UserService userService = new UserService();
+    private final UserService userService;
 
     public WebSocketBrokerController(SimpMessagingTemplate messagingTemplate) {
+        this(messagingTemplate, new GameController(), new LobbyService(), new UserService());
+    }
+
+    public WebSocketBrokerController(SimpMessagingTemplate messagingTemplate,
+                                     GameController gameController,
+                                     LobbyService lobbyService,
+                                     UserService userService) {
         this.messagingTemplate = messagingTemplate;
+        this.gameController = gameController;
+        this.lobbyService = lobbyService;
+        this.userService = userService;
     }
 
     // 1. Private Antworten an den Auslöser über das dedizierte Player-Topic
@@ -291,12 +301,12 @@ public class WebSocketBrokerController {
 
     @MessageMapping("/lobby/startGame")
     public void handleStartGame(StartGameMessage message) {
-        System.out.println("[DEBUG] Received /lobby/startGame request: lobbyId='" + message.getLobbyId() +
-                "', requesterId='" + message.getRequesterId() + "'");
         if (message == null) {
-            System.out.println("[DEBUG] ⚠️ Received null StartGameMessage");
+            System.out.println("[DEBUG] Received null StartGameMessage");
             return;
         }
+        System.out.println("[DEBUG] Received /lobby/startGame request: lobbyId='" + message.getLobbyId() +
+                "', requesterId='" + message.getRequesterId() + "'");
         try {
             Lobby lobby = lobbyService.getLobby(message.getLobbyId());
             if (lobby == null) throw new IllegalArgumentException("Lobby not found");
