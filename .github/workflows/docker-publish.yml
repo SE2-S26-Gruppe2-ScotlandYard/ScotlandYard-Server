@@ -7,7 +7,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: se2-s26-gruppe2-scotlandyard/scotlandyard-server
 
 jobs:
   build-and-push:
