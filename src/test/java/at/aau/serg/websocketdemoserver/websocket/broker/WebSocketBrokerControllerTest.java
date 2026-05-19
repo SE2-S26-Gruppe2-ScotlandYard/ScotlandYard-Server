@@ -781,6 +781,12 @@ class WebSocketBrokerControllerTest {
         assertNotNull(response.getStartPosition());
         assertTrue(response.getStartPosition() >= 1 && response.getStartPosition() <= 199);
 
+        // GameState must be broadcast so board renders the figure
+        verify(template).convertAndSend(
+                eq("/topic/game/game-abc/movements"),
+                any(GameStateDto.class)
+        );
+
         // calling again returns the same position
         localController.handleStartPositionRequest(request);
         ArgumentCaptor<Object> captor2 = ArgumentCaptor.forClass(Object.class);
@@ -790,6 +796,12 @@ class WebSocketBrokerControllerTest {
         );
         StartPositionResponse response2 = (StartPositionResponse) captor2.getAllValues().get(1);
         assertEquals(response.getStartPosition(), response2.getStartPosition());
+
+        // Two successful calls → two broadcasts
+        verify(template, times(2)).convertAndSend(
+                eq("/topic/game/game-abc/movements"),
+                any(GameStateDto.class)
+        );
 
         GameController.getInstance().removeGame("game-abc");
     }
@@ -827,6 +839,12 @@ class WebSocketBrokerControllerTest {
         StartPositionResponse response = (StartPositionResponse) captor.getValue();
         assertEquals("START_POSITION_ASSIGNED", response.getType());
         assertEquals(77, response.getStartPosition());
+
+        // The updated GameState must also be broadcast so the board renders the new figure
+        verify(template).convertAndSend(
+                eq("/topic/game/cheat-game-1/movements"),
+                any(GameStateDto.class)
+        );
 
         GameController.getInstance().removeGame("cheat-game-1");
     }
@@ -896,6 +914,11 @@ class WebSocketBrokerControllerTest {
 
         // p1 takes position 55
         localController.handleStartPositionRequest(new StartPositionRequest(gameId, "p1", 55));
+        // p1 success → one broadcast to movements
+        verify(template, times(1)).convertAndSend(
+                eq("/topic/game/" + gameId + "/movements"),
+                any(GameStateDto.class)
+        );
 
         // p2 tries to take the same position
         localController.handleStartPositionRequest(new StartPositionRequest(gameId, "p2", 55));
@@ -934,6 +957,12 @@ class WebSocketBrokerControllerTest {
         assertEquals("START_POSITION_ASSIGNED", response.getType());
         assertNotNull(response.getStartPosition());
         assertTrue(response.getStartPosition() >= 1 && response.getStartPosition() <= 199);
+
+        // GameState broadcast must also happen on random-fallback path
+        verify(template).convertAndSend(
+                eq("/topic/game/cheat-game-5/movements"),
+                any(GameStateDto.class)
+        );
 
         GameController.getInstance().removeGame("cheat-game-5");
     }

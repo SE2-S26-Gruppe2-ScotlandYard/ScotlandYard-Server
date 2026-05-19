@@ -321,6 +321,8 @@ public class WebSocketBrokerController {
             int position = gameState.assignStartPosition(playerId, request.getSelectedStartPosition());
             messagingTemplate.convertAndSend(topic,
                     new StartPositionResponse("START_POSITION_ASSIGNED", gameId, playerId, position, null));
+            // Broadcast the updated board state so every client renders the new figure immediately
+            broadcastGameState(gameId, gameState);
         } catch (Exception e) {
             messagingTemplate.convertAndSend(topic,
                     new StartPositionResponse("ERROR", gameId, playerId, null, e.getMessage()));
