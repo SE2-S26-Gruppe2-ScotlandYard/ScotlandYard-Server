@@ -1,6 +1,7 @@
 package at.aau.serg.websocketdemoserver.websocket.broker;
 
 import at.aau.serg.websocketdemoserver.dtos.game.GameStateDto;
+import at.aau.serg.websocketdemoserver.dtos.game.StartPositionConfirmRequest;
 import at.aau.serg.websocketdemoserver.dtos.game.StartPositionRequest;
 import at.aau.serg.websocketdemoserver.dtos.game.StartPositionResponse;
 import at.aau.serg.websocketdemoserver.dtos.StompMessage;
@@ -317,11 +318,60 @@ public class WebSocketBrokerController {
         }
 
         try {
-            int position = gameState.assignStartPosition(playerId);
+            int position = gameState.assignStartPosition(playerId, request.getSelectedStartPosition());
             messagingTemplate.convertAndSend(topic,
                     new StartPositionResponse("START_POSITION_ASSIGNED", gameId, playerId, position, null));
         } catch (Exception e) {
             messagingTemplate.convertAndSend(topic,
+                    new StartPositionResponse("ERROR", gameId, playerId, null, e.getMessage()));
+        }
+    }
+
+    /**
+     * Confirms a client-chosen start position (spinner confirm flow).
+     *
+     * <p>Destination: {@code /app/game/start-position/confirm}
+     * <p>Payload: {@link StartPositionConfirmRequest} with {@code gameId}, {@code playerId},
+     * {@code startPosition} (int 1–199).
+     *
+     * <p>On success the updated {@link GameStateDto} is broadcast to
+     * {@code /topic/game/{gameId}/movements} so all players see the confirmed position
+     * on the game board immediately.  An optional "all confirmed" broadcast is included
+     * once every player has set their start position.
+     *
+     * <p>On validation error a {@link StartPositionResponse} with {@code type="ERROR"}
+     * is sent to the player-specific topic
+     * {@code /topic/game/{gameId}/player/{playerId}/start-position}.
+     */
+    @MessageMapping("/game/start-position/confirm")
+    public void handleConfirmStartPosition(StartPositionConfirmRequest request) {
+        String gameId  = request.getGameId();
+        String playerId = request.getPlayerId();
+        String errorTopic = TOPIC_GAME + gameId + "/player/" + playerId + "/start-position";
+
+        GameState gameState = gameController.getGame(gameId);
+        if (gameState == null) {
+            messagingTemplate.convertAndSend(errorTopic,
+                    new StartPositionResponse("ERROR", gameId, playerId, null, "Game not found"));
+            return;
+        }
+
+        try {
+            int confirmedPosition = gameState.confirmStartPosition(playerId, request.getStartPosition());
+            // Broadcast updated board state to all players on the game board screen
+            broadcastGameState(gameId, gameState);
+
+            // Additionally notify the confirming player with an explicit ack
+            messagingTemplate.convertAndSend(errorTopic,
+                    new StartPositionResponse("START_POSITION_CONFIRMED", gameId, playerId,
+                            confirmedPosition, null));
+
+            // If all players have confirmed, send a dedicated "all ready" broadcast
+            if (gameState.allPlayersHaveStartPosition()) {
+                broadcastGameState(gameId, gameState);
+            }
+        } catch (Exception e) {
+            messagingTemplate.convertAndSend(errorTopic,
                     new StartPositionResponse("ERROR", gameId, playerId, null, e.getMessage()));
         }
     }

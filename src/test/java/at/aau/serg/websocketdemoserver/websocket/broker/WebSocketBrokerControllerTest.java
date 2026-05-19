@@ -1,5 +1,7 @@
 package at.aau.serg.websocketdemoserver.websocket.broker;
 
+import at.aau.serg.websocketdemoserver.dtos.game.GameStateDto;
+import at.aau.serg.websocketdemoserver.dtos.game.StartPositionConfirmRequest;
 import at.aau.serg.websocketdemoserver.dtos.game.StartPositionRequest;
 import at.aau.serg.websocketdemoserver.dtos.game.StartPositionResponse;
 import at.aau.serg.websocketdemoserver.dtos.StompMessage;
@@ -790,5 +792,290 @@ class WebSocketBrokerControllerTest {
         assertEquals(response.getStartPosition(), response2.getStartPosition());
 
         GameController.getInstance().removeGame("game-abc");
+    }
+
+    // ── handleStartPositionRequest – cheat/manual position ────────────────
+
+    private GameState buildGameWithPlayer(String gameId, String playerId) {
+        GameState gs = new GameState(gameId);
+        Lobby lobby = mock(Lobby.class);
+        User player = new User(playerId, "TestPlayer");
+        when(lobby.canStartGame()).thenReturn(true);
+        when(lobby.getUsers()).thenReturn(List.of(player));
+        when(lobby.getSelectedRole(playerId)).thenReturn(Role.DETECTIVE);
+        gs.initializePlayersFromLobby(lobby);
+        GameController.getInstance().addGame(gameId, gs);
+        return gs;
+    }
+
+    @Test
+    void testHandleStartPositionRequest_validSelectedPosition_usesIt() {
+        SimpMessagingTemplate template = mock(SimpMessagingTemplate.class);
+        WebSocketBrokerController localController = controllerWithMockTemplate(template);
+
+        buildGameWithPlayer("cheat-game-1", "player-cheat");
+
+        StartPositionRequest request = new StartPositionRequest("cheat-game-1", "player-cheat", 77);
+        localController.handleStartPositionRequest(request);
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(template).convertAndSend(
+                eq("/topic/game/cheat-game-1/player/player-cheat/start-position"),
+                captor.capture()
+        );
+
+        StartPositionResponse response = (StartPositionResponse) captor.getValue();
+        assertEquals("START_POSITION_ASSIGNED", response.getType());
+        assertEquals(77, response.getStartPosition());
+
+        GameController.getInstance().removeGame("cheat-game-1");
+    }
+
+    @Test
+    void testHandleStartPositionRequest_selectedPositionBelowRange_returnsError() {
+        SimpMessagingTemplate template = mock(SimpMessagingTemplate.class);
+        WebSocketBrokerController localController = controllerWithMockTemplate(template);
+
+        buildGameWithPlayer("cheat-game-2", "player-cheat");
+
+        StartPositionRequest request = new StartPositionRequest("cheat-game-2", "player-cheat", 0);
+        localController.handleStartPositionRequest(request);
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(template).convertAndSend(
+                eq("/topic/game/cheat-game-2/player/player-cheat/start-position"),
+                captor.capture()
+        );
+
+        StartPositionResponse response = (StartPositionResponse) captor.getValue();
+        assertEquals("ERROR", response.getType());
+        assertNull(response.getStartPosition());
+
+        GameController.getInstance().removeGame("cheat-game-2");
+    }
+
+    @Test
+    void testHandleStartPositionRequest_selectedPositionAboveRange_returnsError() {
+        SimpMessagingTemplate template = mock(SimpMessagingTemplate.class);
+        WebSocketBrokerController localController = controllerWithMockTemplate(template);
+
+        buildGameWithPlayer("cheat-game-3", "player-cheat");
+
+        StartPositionRequest request = new StartPositionRequest("cheat-game-3", "player-cheat", 200);
+        localController.handleStartPositionRequest(request);
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(template).convertAndSend(
+                eq("/topic/game/cheat-game-3/player/player-cheat/start-position"),
+                captor.capture()
+        );
+
+        StartPositionResponse response = (StartPositionResponse) captor.getValue();
+        assertEquals("ERROR", response.getType());
+        assertNull(response.getStartPosition());
+
+        GameController.getInstance().removeGame("cheat-game-3");
+    }
+
+    @Test
+    void testHandleStartPositionRequest_selectedPositionAlreadyTaken_returnsError() {
+        SimpMessagingTemplate template = mock(SimpMessagingTemplate.class);
+        WebSocketBrokerController localController = controllerWithMockTemplate(template);
+
+        String gameId = "cheat-game-4";
+        GameState gs = new GameState(gameId);
+        Lobby lobby = mock(Lobby.class);
+        User p1 = new User("p1", "Player1");
+        User p2 = new User("p2", "Player2");
+        when(lobby.canStartGame()).thenReturn(true);
+        when(lobby.getUsers()).thenReturn(List.of(p1, p2));
+        when(lobby.getSelectedRole("p1")).thenReturn(Role.DETECTIVE);
+        when(lobby.getSelectedRole("p2")).thenReturn(Role.DETECTIVE);
+        gs.initializePlayersFromLobby(lobby);
+        GameController.getInstance().addGame(gameId, gs);
+
+        // p1 takes position 55
+        localController.handleStartPositionRequest(new StartPositionRequest(gameId, "p1", 55));
+
+        // p2 tries to take the same position
+        localController.handleStartPositionRequest(new StartPositionRequest(gameId, "p2", 55));
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(template, times(1)).convertAndSend(
+                eq("/topic/game/" + gameId + "/player/p2/start-position"),
+                captor.capture()
+        );
+
+        StartPositionResponse response = (StartPositionResponse) captor.getValue();
+        assertEquals("ERROR", response.getType());
+        assertNull(response.getStartPosition());
+
+        GameController.getInstance().removeGame(gameId);
+    }
+
+    @Test
+    void testHandleStartPositionRequest_noSelectedPosition_fallsBackToRandom() {
+        SimpMessagingTemplate template = mock(SimpMessagingTemplate.class);
+        WebSocketBrokerController localController = controllerWithMockTemplate(template);
+
+        buildGameWithPlayer("cheat-game-5", "player-auto");
+
+        // no selectedStartPosition field → backward-compat constructor
+        StartPositionRequest request = new StartPositionRequest("cheat-game-5", "player-auto");
+        localController.handleStartPositionRequest(request);
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(template).convertAndSend(
+                eq("/topic/game/cheat-game-5/player/player-auto/start-position"),
+                captor.capture()
+        );
+
+        StartPositionResponse response = (StartPositionResponse) captor.getValue();
+        assertEquals("START_POSITION_ASSIGNED", response.getType());
+        assertNotNull(response.getStartPosition());
+        assertTrue(response.getStartPosition() >= 1 && response.getStartPosition() <= 199);
+
+        GameController.getInstance().removeGame("cheat-game-5");
+    }
+
+    // ── handleConfirmStartPosition ────────────────────────────────────────────
+
+    @Test
+    void testHandleConfirmStartPosition_validPosition_broadcastsGameState() {
+        SimpMessagingTemplate template = mock(SimpMessagingTemplate.class);
+        WebSocketBrokerController localController = controllerWithMockTemplate(template);
+
+        buildGameWithPlayer("conf-game-1", "player-conf");
+
+        StartPositionConfirmRequest req = new StartPositionConfirmRequest("conf-game-1", "player-conf", 55);
+        localController.handleConfirmStartPosition(req);
+
+        // GameStateDto must be sent to the movements topic
+        verify(template, atLeastOnce()).convertAndSend(
+                eq("/topic/game/conf-game-1/movements"),
+                any(GameStateDto.class)
+        );
+
+        // Player ack on player-specific topic
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(template).convertAndSend(
+                eq("/topic/game/conf-game-1/player/player-conf/start-position"),
+                captor.capture()
+        );
+        StartPositionResponse ack = (StartPositionResponse) captor.getValue();
+        assertEquals("START_POSITION_CONFIRMED", ack.getType());
+        assertEquals(55, ack.getStartPosition());
+
+        GameController.getInstance().removeGame("conf-game-1");
+    }
+
+    @Test
+    void testHandleConfirmStartPosition_positionBelowRange_returnsError() {
+        SimpMessagingTemplate template = mock(SimpMessagingTemplate.class);
+        WebSocketBrokerController localController = controllerWithMockTemplate(template);
+
+        buildGameWithPlayer("conf-game-2", "pc2");
+
+        localController.handleConfirmStartPosition(new StartPositionConfirmRequest("conf-game-2", "pc2", 0));
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(template).convertAndSend(
+                eq("/topic/game/conf-game-2/player/pc2/start-position"),
+                captor.capture()
+        );
+        StartPositionResponse resp = (StartPositionResponse) captor.getValue();
+        assertEquals("ERROR", resp.getType());
+
+        GameController.getInstance().removeGame("conf-game-2");
+    }
+
+    @Test
+    void testHandleConfirmStartPosition_positionAboveRange_returnsError() {
+        SimpMessagingTemplate template = mock(SimpMessagingTemplate.class);
+        WebSocketBrokerController localController = controllerWithMockTemplate(template);
+
+        buildGameWithPlayer("conf-game-3", "pc3");
+
+        localController.handleConfirmStartPosition(new StartPositionConfirmRequest("conf-game-3", "pc3", 200));
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(template).convertAndSend(
+                eq("/topic/game/conf-game-3/player/pc3/start-position"),
+                captor.capture()
+        );
+        StartPositionResponse resp = (StartPositionResponse) captor.getValue();
+        assertEquals("ERROR", resp.getType());
+
+        GameController.getInstance().removeGame("conf-game-3");
+    }
+
+    @Test
+    void testHandleConfirmStartPosition_gameNotFound_returnsError() {
+        SimpMessagingTemplate template = mock(SimpMessagingTemplate.class);
+        WebSocketBrokerController localController = controllerWithMockTemplate(template);
+
+        localController.handleConfirmStartPosition(
+                new StartPositionConfirmRequest("no-such-game", "player-x", 42));
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(template).convertAndSend(
+                eq("/topic/game/no-such-game/player/player-x/start-position"),
+                captor.capture()
+        );
+        StartPositionResponse resp = (StartPositionResponse) captor.getValue();
+        assertEquals("ERROR", resp.getType());
+    }
+
+    @Test
+    void testHandleConfirmStartPosition_positionAlreadyTaken_returnsError() {
+        SimpMessagingTemplate template = mock(SimpMessagingTemplate.class);
+        WebSocketBrokerController localController = controllerWithMockTemplate(template);
+
+        String gameId = "conf-game-4";
+        GameState gs = new GameState(gameId);
+        Lobby lobby = mock(Lobby.class);
+        User p1 = new User("cp1", "Conf1");
+        User p2 = new User("cp2", "Conf2");
+        when(lobby.canStartGame()).thenReturn(true);
+        when(lobby.getUsers()).thenReturn(List.of(p1, p2));
+        when(lobby.getSelectedRole("cp1")).thenReturn(Role.DETECTIVE);
+        when(lobby.getSelectedRole("cp2")).thenReturn(Role.DETECTIVE);
+        gs.initializePlayersFromLobby(lobby);
+        GameController.getInstance().addGame(gameId, gs);
+
+        // first player takes position 66
+        localController.handleConfirmStartPosition(new StartPositionConfirmRequest(gameId, "cp1", 66));
+
+        // second player tries the same position
+        localController.handleConfirmStartPosition(new StartPositionConfirmRequest(gameId, "cp2", 66));
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(template, times(1)).convertAndSend(
+                eq("/topic/game/" + gameId + "/player/cp2/start-position"),
+                captor.capture()
+        );
+        StartPositionResponse resp = (StartPositionResponse) captor.getValue();
+        assertEquals("ERROR", resp.getType());
+
+        GameController.getInstance().removeGame(gameId);
+    }
+
+    @Test
+    void testHandleConfirmStartPosition_allPlayersConfirmed_broadcastsGameStateTwice() {
+        SimpMessagingTemplate template = mock(SimpMessagingTemplate.class);
+        WebSocketBrokerController localController = controllerWithMockTemplate(template);
+
+        // Build a game with a single player so "all confirmed" triggers after one confirm
+        buildGameWithPlayer("conf-game-5", "solo");
+
+        localController.handleConfirmStartPosition(new StartPositionConfirmRequest("conf-game-5", "solo", 77));
+
+        // broadcastGameState called twice: once after set, once for "all ready"
+        verify(template, times(2)).convertAndSend(
+                eq("/topic/game/conf-game-5/movements"),
+                any(GameStateDto.class)
+        );
+
+        GameController.getInstance().removeGame("conf-game-5");
     }
 }

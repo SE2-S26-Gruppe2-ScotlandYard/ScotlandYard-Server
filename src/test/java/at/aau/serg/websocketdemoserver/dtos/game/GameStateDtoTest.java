@@ -11,10 +11,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 class GameStateDtoTest {
 
     private GameStateDto buildDto(String gameId, int round, TurnType phase) {
+        boolean mrxPhase = phase == TurnType.MRX;
+        boolean detPhase = phase == TurnType.DETECTIVES;
         return new GameStateDto(
                 gameId,
                 round,
                 phase,
+                mrxPhase,
+                detPhase,
                 Map.of("det1", 10),
                 99,
                 false,
@@ -83,8 +87,29 @@ class GameStateDtoTest {
 
     @Test
     void testNullMrXPosition() {
-        GameStateDto dto = new GameStateDto("g1", 1, TurnType.MRX, Map.of(), null, false, 1,
-                Map.of(), Map.of(), List.of(), Map.of());
+        GameStateDto dto = new GameStateDto("g1", 1, TurnType.MRX, true, false,
+                Map.of(), null, false, 1, Map.of(), Map.of(), List.of(), Map.of());
         assertThat(dto.getMrXPosition()).isNull();
+    }
+
+    @Test
+    void testIsMrXPhase_trueWhenMrXPhase() {
+        GameStateDto dto = buildDto("g1", 1, TurnType.MRX);
+        assertThat(dto.isMrXPhase()).isTrue();
+        assertThat(dto.isDetectivesPhase()).isFalse();
+    }
+
+    @Test
+    void testIsDetectivesPhase_trueWhenDetectivesPhase() {
+        GameStateDto dto = buildDto("g1", 1, TurnType.DETECTIVES);
+        assertThat(dto.isDetectivesPhase()).isTrue();
+        assertThat(dto.isMrXPhase()).isFalse();
+    }
+
+    @Test
+    void testNoArgsConstructorDefaultsPhaseFlags() {
+        GameStateDto dto = new GameStateDto();
+        assertThat(dto.isMrXPhase()).isFalse();
+        assertThat(dto.isDetectivesPhase()).isFalse();
     }
 }

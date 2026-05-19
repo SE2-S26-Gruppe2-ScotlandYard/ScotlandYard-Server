@@ -688,6 +688,109 @@ class GameStateTest {
                 () -> gameState.assignStartPosition("unknownPlayer"));
     }
 
+    // ── assignStartPosition(playerId, selectedPosition) – cheat feature ───
+
+    @Test
+    void testAssignStartPosition_withValidSelectedPosition() {
+        setupBasicLobby();
+        gameState.initializePlayersFromLobby(mockLobby);
+
+        int pos = gameState.assignStartPosition(hostUser.id(), 42);
+
+        assertEquals(42, pos);
+        assertEquals(42, gameState.getPlayerPosition(hostUser.id()));
+    }
+
+    @Test
+    void testAssignStartPosition_selectedNull_fallsBackToRandom() {
+        setupBasicLobby();
+        gameState.initializePlayersFromLobby(mockLobby);
+
+        int pos = gameState.assignStartPosition(hostUser.id(), null);
+
+        assertTrue(pos >= 1 && pos <= 199);
+        assertEquals(pos, gameState.getPlayerPosition(hostUser.id()));
+    }
+
+    @Test
+    void testAssignStartPosition_selectedBelowRange_throwsException() {
+        setupBasicLobby();
+        gameState.initializePlayersFromLobby(mockLobby);
+        String playerId = hostUser.id();
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> gameState.assignStartPosition(playerId, 0));
+        assertTrue(ex.getMessage().contains("1 and 199"));
+    }
+
+    @Test
+    void testAssignStartPosition_selectedAboveRange_throwsException() {
+        setupBasicLobby();
+        gameState.initializePlayersFromLobby(mockLobby);
+        String playerId = hostUser.id();
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> gameState.assignStartPosition(playerId, 200));
+        assertTrue(ex.getMessage().contains("1 and 199"));
+    }
+
+    @Test
+    void testAssignStartPosition_selectedNegative_throwsException() {
+        setupBasicLobby();
+        gameState.initializePlayersFromLobby(mockLobby);
+        String playerId = hostUser.id();
+
+        assertThrows(IllegalArgumentException.class,
+                () -> gameState.assignStartPosition(playerId, -5));
+    }
+
+    @Test
+    void testAssignStartPosition_selectedAlreadyTaken_throwsException() {
+        setupBasicLobby();
+        gameState.initializePlayersFromLobby(mockLobby);
+
+        // first player takes position 50
+        gameState.assignStartPosition(hostUser.id(), 50);
+
+        // second player tries the same position
+        String secondId = detectiveUser1.id();
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> gameState.assignStartPosition(secondId, 50));
+        assertTrue(ex.getMessage().contains("already taken"));
+    }
+
+    @Test
+    void testAssignStartPosition_selectedPositionReturnsExistingIfAlreadyAssigned() {
+        setupBasicLobby();
+        gameState.initializePlayersFromLobby(mockLobby);
+
+        // assign once
+        gameState.assignStartPosition(hostUser.id(), 77);
+
+        // calling again (even with a different selection) returns the already-assigned position
+        int pos = gameState.assignStartPosition(hostUser.id(), 33);
+
+        assertEquals(77, pos);
+    }
+
+    @Test
+    void testAssignStartPosition_unknownPlayerWithSelectedPosition_throwsException() {
+        assertThrows(IllegalArgumentException.class,
+                () -> gameState.assignStartPosition("unknownPlayer", 42));
+    }
+
+    @Test
+    void testAssignStartPosition_twoDifferentSelectedPositions_areUnique() {
+        setupBasicLobby();
+        gameState.initializePlayersFromLobby(mockLobby);
+
+        gameState.assignStartPosition(hostUser.id(), 10);
+        gameState.assignStartPosition(detectiveUser1.id(), 20);
+
+        assertEquals(10, gameState.getPlayerPosition(hostUser.id()));
+        assertEquals(20, gameState.getPlayerPosition(detectiveUser1.id()));
+    }
+
     // ── initializePlayersFromLobby ─────────────────────────────────────────
 
     @Test
@@ -730,5 +833,113 @@ class GameStateTest {
 
         int pos = gameState.assignStartPosition(hostUser.id());
         assertTrue(pos >= 1 && pos <= 199);
+    }
+
+    // ── confirmStartPosition ──────────────────────────────────────────────────
+
+    @Test
+    void testConfirmStartPosition_validPosition_setsAndReturnsIt() {
+        setupBasicLobby();
+        gameState.initializePlayersFromLobby(mockLobby);
+
+        int pos = gameState.confirmStartPosition(hostUser.id(), 42);
+
+        assertEquals(42, pos);
+        assertEquals(42, gameState.getPlayerPosition(hostUser.id()));
+    }
+
+    @Test
+    void testConfirmStartPosition_belowRange_throwsException() {
+        setupBasicLobby();
+        gameState.initializePlayersFromLobby(mockLobby);
+        String pid = hostUser.id();
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> gameState.confirmStartPosition(pid, 0));
+        assertTrue(ex.getMessage().contains("1 and 199"));
+    }
+
+    @Test
+    void testConfirmStartPosition_aboveRange_throwsException() {
+        setupBasicLobby();
+        gameState.initializePlayersFromLobby(mockLobby);
+        String pid = hostUser.id();
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> gameState.confirmStartPosition(pid, 200));
+        assertTrue(ex.getMessage().contains("1 and 199"));
+    }
+
+    @Test
+    void testConfirmStartPosition_negativeValue_throwsException() {
+        setupBasicLobby();
+        gameState.initializePlayersFromLobby(mockLobby);
+        String pid = hostUser.id();
+
+        assertThrows(IllegalArgumentException.class,
+                () -> gameState.confirmStartPosition(pid, -1));
+    }
+
+    @Test
+    void testConfirmStartPosition_positionAlreadyTakenByOtherPlayer_throwsException() {
+        setupBasicLobby();
+        gameState.initializePlayersFromLobby(mockLobby);
+
+        gameState.confirmStartPosition(hostUser.id(), 50);
+
+        String secondId = detectiveUser1.id();
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> gameState.confirmStartPosition(secondId, 50));
+        assertTrue(ex.getMessage().contains("already taken"));
+    }
+
+    @Test
+    void testConfirmStartPosition_samePlayerCanUpdatePosition() {
+        setupBasicLobby();
+        gameState.initializePlayersFromLobby(mockLobby);
+
+        gameState.confirmStartPosition(hostUser.id(), 30);
+        int updated = gameState.confirmStartPosition(hostUser.id(), 80);
+
+        assertEquals(80, updated);
+        assertEquals(80, gameState.getPlayerPosition(hostUser.id()));
+    }
+
+    @Test
+    void testConfirmStartPosition_unknownPlayer_throwsException() {
+        assertThrows(IllegalArgumentException.class,
+                () -> gameState.confirmStartPosition("ghost", 42));
+    }
+
+    // ── allPlayersHaveStartPosition ───────────────────────────────────────────
+
+    @Test
+    void testAllPlayersHaveStartPosition_falseWhenNoneSet() {
+        setupBasicLobby();
+        gameState.initializePlayersFromLobby(mockLobby);
+
+        assertFalse(gameState.allPlayersHaveStartPosition());
+    }
+
+    @Test
+    void testAllPlayersHaveStartPosition_falseWhenPartiallySet() {
+        setupBasicLobby();
+        gameState.initializePlayersFromLobby(mockLobby);
+
+        gameState.confirmStartPosition(hostUser.id(), 10);
+        // detectiveUser1 not yet confirmed
+
+        assertFalse(gameState.allPlayersHaveStartPosition());
+    }
+
+    @Test
+    void testAllPlayersHaveStartPosition_trueWhenAllSet() {
+        setupBasicLobby();
+        gameState.initializePlayersFromLobby(mockLobby);
+
+        gameState.confirmStartPosition(hostUser.id(), 10);
+        gameState.confirmStartPosition(detectiveUser1.id(), 20);
+
+        assertTrue(gameState.allPlayersHaveStartPosition());
     }
 }

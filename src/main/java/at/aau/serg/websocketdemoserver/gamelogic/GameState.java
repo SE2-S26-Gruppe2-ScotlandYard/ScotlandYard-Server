@@ -89,6 +89,110 @@ public class GameState {
         return assignedPosition;
     }
 
+    /**
+     * Assigns a start position to the given player.
+     *
+     * <p>Cheat/debug variant: when {@code selectedStartPosition} is non-null the
+     * supplied value is used instead of the random fallback.  The position is
+     * validated before it is applied:
+     * <ul>
+     *   <li>must be in range 1–199</li>
+     *   <li>must not already be occupied by another player</li>
+     * </ul>
+     * If {@code selectedStartPosition} is {@code null} the call delegates to the
+     * standard {@link #assignStartPosition(String)} method, preserving the
+     * existing automatic behaviour for clients that do not send the field.
+     *
+     * @param playerId              the ID of the player to position
+     * @param selectedStartPosition optional manually chosen position, or {@code null}
+     * @return the assigned start position
+     * @throws IllegalArgumentException if the player does not exist or the
+     *                                  position is out of range
+     * @throws IllegalStateException    if the position is already taken
+     */
+    public int assignStartPosition(String playerId, Integer selectedStartPosition) {
+        // null → standard random fallback (backward compat)
+        if (selectedStartPosition == null) {
+            return assignStartPosition(playerId);
+        }
+
+        if (!players.containsKey(playerId)) {
+            throw new IllegalArgumentException("Player not found: " + playerId);
+        }
+
+        // Player already has a position → return it unchanged
+        Integer existingPosition = playerPositions.get(playerId);
+        if (existingPosition != null) {
+            return existingPosition;
+        }
+
+        // Range validation
+        if (selectedStartPosition < 1 || selectedStartPosition > 199) {
+            throw new IllegalArgumentException(
+                    "Selected start position must be between 1 and 199, got: " + selectedStartPosition);
+        }
+
+        // Occupancy validation
+        if (playerPositions.containsValue(selectedStartPosition)) {
+            throw new IllegalStateException(
+                    "Position " + selectedStartPosition + " is already taken by another player");
+        }
+
+        playerPositions.put(playerId, selectedStartPosition);
+        return selectedStartPosition;
+    }
+
+    /**
+     * Confirms a client-chosen start position (spinner confirm flow).
+     *
+     * <p>Unlike {@link #assignStartPosition(String, Integer)} this method always
+     * writes the supplied position (it does not return an already-stored value
+     * unchanged), so the client can correct its selection before the game
+     * actually starts.  Validation rules:
+     * <ul>
+     *   <li>Player must exist.</li>
+     *   <li>Position must be in range 1–199 (board stations).</li>
+     *   <li>Position must not already be occupied by a <em>different</em> player.</li>
+     * </ul>
+     *
+     * @param playerId      ID of the confirming player
+     * @param startPosition chosen start position (1–199)
+     * @return the confirmed position
+     * @throws IllegalArgumentException if player not found or position out of range
+     * @throws IllegalStateException    if position is already taken by another player
+     */
+    public int confirmStartPosition(String playerId, int startPosition) {
+        if (!players.containsKey(playerId)) {
+            throw new IllegalArgumentException("Player not found: " + playerId);
+        }
+        if (startPosition < 1 || startPosition > 199) {
+            throw new IllegalArgumentException(
+                    "Start position must be between 1 and 199, got: " + startPosition);
+        }
+        // Check if another player already occupies this position
+        for (Map.Entry<String, Integer> entry : playerPositions.entrySet()) {
+            if (!entry.getKey().equals(playerId) && entry.getValue().equals(startPosition)) {
+                throw new IllegalStateException(
+                        "Position " + startPosition + " is already taken by another player");
+            }
+        }
+        playerPositions.put(playerId, startPosition);
+        return startPosition;
+    }
+
+    /**
+     * Returns {@code true} when every registered player has a confirmed start position.
+     * Used to detect when the board can become fully interactive.
+     */
+    public boolean allPlayersHaveStartPosition() {
+        for (String playerId : players.keySet()) {
+            if (!playerPositions.containsKey(playerId)) {
+                return false;
+            }
+        }
+        return !players.isEmpty();
+    }
+
     public boolean activateDoubleMove() {
         Player player = players.get(mrXId);
 

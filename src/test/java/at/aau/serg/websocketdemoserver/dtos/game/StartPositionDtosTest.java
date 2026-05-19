@@ -13,6 +13,7 @@ class StartPositionDtosTest {
         StartPositionRequest req = new StartPositionRequest();
         assertThat(req.getGameId()).isNull();
         assertThat(req.getPlayerId()).isNull();
+        assertThat(req.getSelectedStartPosition()).isNull();
     }
 
     @Test
@@ -20,6 +21,15 @@ class StartPositionDtosTest {
         StartPositionRequest req = new StartPositionRequest("game-1", "player-1");
         assertThat(req.getGameId()).isEqualTo("game-1");
         assertThat(req.getPlayerId()).isEqualTo("player-1");
+        assertThat(req.getSelectedStartPosition()).isNull();
+    }
+
+    @Test
+    void testStartPositionRequestThreeArgConstructor() {
+        StartPositionRequest req = new StartPositionRequest("game-1", "player-1", 42);
+        assertThat(req.getGameId()).isEqualTo("game-1");
+        assertThat(req.getPlayerId()).isEqualTo("player-1");
+        assertThat(req.getSelectedStartPosition()).isEqualTo(42);
     }
 
     @Test
@@ -27,9 +37,21 @@ class StartPositionDtosTest {
         StartPositionRequest req = new StartPositionRequest();
         req.setGameId("game-1");
         req.setPlayerId("player-1");
+        req.setSelectedStartPosition(99);
 
         assertThat(req.getGameId()).isEqualTo("game-1");
         assertThat(req.getPlayerId()).isEqualTo("player-1");
+        assertThat(req.getSelectedStartPosition()).isEqualTo(99);
+    }
+
+    @Test
+    void testStartPositionRequestSettersAndGetters_nullSelectedPosition() {
+        StartPositionRequest req = new StartPositionRequest();
+        req.setGameId("game-1");
+        req.setPlayerId("player-1");
+        req.setSelectedStartPosition(null);
+
+        assertThat(req.getSelectedStartPosition()).isNull();
     }
 
     @Test
@@ -37,6 +59,17 @@ class StartPositionDtosTest {
         StartPositionRequest r1 = new StartPositionRequest("game-1", "player-1");
         StartPositionRequest r2 = new StartPositionRequest("game-1", "player-1");
         StartPositionRequest r3 = new StartPositionRequest("game-2", "player-2");
+
+        assertThat(r1).isEqualTo(r2);
+        assertThat(r1.hashCode()).isEqualTo(r2.hashCode());
+        assertThat(r1).isNotEqualTo(r3);
+    }
+
+    @Test
+    void testStartPositionRequestEqualsAndHashCode_withSelectedPosition() {
+        StartPositionRequest r1 = new StartPositionRequest("game-1", "player-1", 50);
+        StartPositionRequest r2 = new StartPositionRequest("game-1", "player-1", 50);
+        StartPositionRequest r3 = new StartPositionRequest("game-1", "player-1", 51);
 
         assertThat(r1).isEqualTo(r2);
         assertThat(r1.hashCode()).isEqualTo(r2.hashCode());
