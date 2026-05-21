@@ -1189,4 +1189,67 @@ class WebSocketBrokerControllerTest {
 
         GameController.getInstance().removeGame("conf-game-5");
     }
+
+    // ── handleConfirmStartPosition – null / blank input guards ───────────────
+
+    @Test
+    void testHandleConfirmStartPosition_nullRequest_doesNotThrow() {
+        SimpMessagingTemplate template = mock(SimpMessagingTemplate.class);
+        WebSocketBrokerController localController = controllerWithMockTemplate(template);
+
+        assertDoesNotThrow(() -> localController.handleConfirmStartPosition(null));
+        verifyNoInteractions(template);
+    }
+
+    @Test
+    void testHandleConfirmStartPosition_nullGameId_sendsErrorToGenericTopic() {
+        SimpMessagingTemplate template = mock(SimpMessagingTemplate.class);
+        WebSocketBrokerController localController = controllerWithMockTemplate(template);
+
+        localController.handleConfirmStartPosition(new StartPositionConfirmRequest(null, "player-x", 42));
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(template).convertAndSend(eq("/topic/game/error"), captor.capture());
+        assertEquals("ERROR", ((StartPositionResponse) captor.getValue()).getType());
+        assertEquals("gameId must not be blank", ((StartPositionResponse) captor.getValue()).getMessage());
+    }
+
+    @Test
+    void testHandleConfirmStartPosition_blankGameId_sendsErrorToGenericTopic() {
+        SimpMessagingTemplate template = mock(SimpMessagingTemplate.class);
+        WebSocketBrokerController localController = controllerWithMockTemplate(template);
+
+        localController.handleConfirmStartPosition(new StartPositionConfirmRequest("  ", "player-x", 42));
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(template).convertAndSend(eq("/topic/game/error"), captor.capture());
+        assertEquals("ERROR", ((StartPositionResponse) captor.getValue()).getType());
+    }
+
+    @Test
+    void testHandleConfirmStartPosition_nullPlayerId_sendsErrorToGameTopic() {
+        SimpMessagingTemplate template = mock(SimpMessagingTemplate.class);
+        WebSocketBrokerController localController = controllerWithMockTemplate(template);
+
+        localController.handleConfirmStartPosition(new StartPositionConfirmRequest("some-game", null, 42));
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(template).convertAndSend(
+                eq("/topic/game/some-game/player/unknown/start-position"), captor.capture());
+        assertEquals("ERROR", ((StartPositionResponse) captor.getValue()).getType());
+        assertEquals("playerId must not be blank", ((StartPositionResponse) captor.getValue()).getMessage());
+    }
+
+    @Test
+    void testHandleConfirmStartPosition_blankPlayerId_sendsErrorToGameTopic() {
+        SimpMessagingTemplate template = mock(SimpMessagingTemplate.class);
+        WebSocketBrokerController localController = controllerWithMockTemplate(template);
+
+        localController.handleConfirmStartPosition(new StartPositionConfirmRequest("some-game", "", 42));
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(template).convertAndSend(
+                eq("/topic/game/some-game/player/unknown/start-position"), captor.capture());
+        assertEquals("ERROR", ((StartPositionResponse) captor.getValue()).getType());
+    }
 }

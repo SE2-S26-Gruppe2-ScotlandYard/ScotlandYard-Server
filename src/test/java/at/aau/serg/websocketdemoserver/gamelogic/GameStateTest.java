@@ -942,4 +942,46 @@ class GameStateTest {
 
         assertTrue(gameState.allPlayersHaveStartPosition());
     }
+
+    @Test
+    void testAllPlayersHaveStartPosition_falseWhenGameHasNoPlayers() {
+        // fresh GameState with no players at all must return false
+        assertFalse(new GameState("empty-game").allPlayersHaveStartPosition());
+    }
+
+    // ── boundary values for assignStartPosition(playerId, selected) ──────────
+
+    @Test
+    void testAssignStartPosition_selectedBoundaryLow_valid() {
+        setupBasicLobby();
+        gameState.initializePlayersFromLobby(mockLobby);
+        int pos = gameState.assignStartPosition(hostUser.id(), 1);
+        assertEquals(1, pos);
+    }
+
+    @Test
+    void testAssignStartPosition_selectedBoundaryHigh_valid() {
+        setupBasicLobby();
+        gameState.initializePlayersFromLobby(mockLobby);
+        int pos = gameState.assignStartPosition(hostUser.id(), 199);
+        assertEquals(199, pos);
+    }
+
+    // ── boundary values for confirmStartPosition ──────────────────────────────
+
+    @Test
+    void testConfirmStartPosition_boundaryLow_valid() {
+        setupBasicLobby();
+        gameState.initializePlayersFromLobby(mockLobby);
+        int pos = gameState.confirmStartPosition(hostUser.id(), 1);
+        assertEquals(1, pos);
+    }
+
+    @Test
+    void testConfirmStartPosition_boundaryHigh_valid() {
+        setupBasicLobby();
+        gameState.initializePlayersFromLobby(mockLobby);
+        int pos = gameState.confirmStartPosition(hostUser.id(), 199);
+        assertEquals(199, pos);
+    }
 }
