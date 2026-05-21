@@ -306,8 +306,23 @@ public class WebSocketBrokerController {
 
     @MessageMapping("/game/start-position/request")
     public void handleStartPositionRequest(StartPositionRequest request) {
+        if (request == null) {
+            return; // no recipient address available – silently ignore
+        }
         String gameId = request.getGameId();
         String playerId = request.getPlayerId();
+
+        if (gameId == null || gameId.isBlank()) {
+            messagingTemplate.convertAndSend("/topic/game/error",
+                    new StartPositionResponse("ERROR", null, playerId, null, "gameId must not be blank"));
+            return;
+        }
+        if (playerId == null || playerId.isBlank()) {
+            messagingTemplate.convertAndSend(TOPIC_GAME + gameId + "/player/unknown/start-position",
+                    new StartPositionResponse("ERROR", gameId, null, null, "playerId must not be blank"));
+            return;
+        }
+
         String topic = TOPIC_GAME + gameId + "/player/" + playerId + "/start-position";
 
         GameState gameState = gameController.getGame(gameId);

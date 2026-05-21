@@ -967,6 +967,88 @@ class WebSocketBrokerControllerTest {
         GameController.getInstance().removeGame("cheat-game-5");
     }
 
+    // ── handleStartPositionRequest – null / blank input guards ───────────────
+
+    @Test
+    void testHandleStartPositionRequest_nullRequest_doesNotThrow() {
+        SimpMessagingTemplate template = mock(SimpMessagingTemplate.class);
+        WebSocketBrokerController localController = controllerWithMockTemplate(template);
+
+        assertDoesNotThrow(() -> localController.handleStartPositionRequest(null));
+        // nothing should be sent – no recipient address available
+        verifyNoInteractions(template);
+    }
+
+    @Test
+    void testHandleStartPositionRequest_nullGameId_sendsErrorToGenericTopic() {
+        SimpMessagingTemplate template = mock(SimpMessagingTemplate.class);
+        WebSocketBrokerController localController = controllerWithMockTemplate(template);
+
+        StartPositionRequest request = new StartPositionRequest(null, "player-1");
+        localController.handleStartPositionRequest(request);
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(template).convertAndSend(eq("/topic/game/error"), captor.capture());
+
+        StartPositionResponse response = (StartPositionResponse) captor.getValue();
+        assertEquals("ERROR", response.getType());
+        assertEquals("gameId must not be blank", response.getMessage());
+    }
+
+    @Test
+    void testHandleStartPositionRequest_blankGameId_sendsErrorToGenericTopic() {
+        SimpMessagingTemplate template = mock(SimpMessagingTemplate.class);
+        WebSocketBrokerController localController = controllerWithMockTemplate(template);
+
+        StartPositionRequest request = new StartPositionRequest("  ", "player-1");
+        localController.handleStartPositionRequest(request);
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(template).convertAndSend(eq("/topic/game/error"), captor.capture());
+
+        StartPositionResponse response = (StartPositionResponse) captor.getValue();
+        assertEquals("ERROR", response.getType());
+        assertEquals("gameId must not be blank", response.getMessage());
+    }
+
+    @Test
+    void testHandleStartPositionRequest_nullPlayerId_sendsErrorToGameTopic() {
+        SimpMessagingTemplate template = mock(SimpMessagingTemplate.class);
+        WebSocketBrokerController localController = controllerWithMockTemplate(template);
+
+        StartPositionRequest request = new StartPositionRequest("some-game", null);
+        localController.handleStartPositionRequest(request);
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(template).convertAndSend(
+                eq("/topic/game/some-game/player/unknown/start-position"),
+                captor.capture()
+        );
+
+        StartPositionResponse response = (StartPositionResponse) captor.getValue();
+        assertEquals("ERROR", response.getType());
+        assertEquals("playerId must not be blank", response.getMessage());
+    }
+
+    @Test
+    void testHandleStartPositionRequest_blankPlayerId_sendsErrorToGameTopic() {
+        SimpMessagingTemplate template = mock(SimpMessagingTemplate.class);
+        WebSocketBrokerController localController = controllerWithMockTemplate(template);
+
+        StartPositionRequest request = new StartPositionRequest("some-game", "");
+        localController.handleStartPositionRequest(request);
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(template).convertAndSend(
+                eq("/topic/game/some-game/player/unknown/start-position"),
+                captor.capture()
+        );
+
+        StartPositionResponse response = (StartPositionResponse) captor.getValue();
+        assertEquals("ERROR", response.getType());
+        assertEquals("playerId must not be blank", response.getMessage());
+    }
+
     // ── handleConfirmStartPosition ────────────────────────────────────────────
 
     @Test
