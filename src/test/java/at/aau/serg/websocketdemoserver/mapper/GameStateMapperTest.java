@@ -149,21 +149,4 @@ class GameStateMapperTest {
         verify(mockGameState).getMrXRevealedPositions();
     }
 
-    @Test
-    void testToDto_isMrXPhase_false_whenDetectives() {
-        // setUp already configures DETECTIVES phase
-        assertFalse(GameStateMapper.toDto(mockGameState).isMrXPhase());
-    }
-
-    @Test
-    void testToDto_isDetectivesPhase_true_whenDetectives() {
-        assertTrue(GameStateMapper.toDto(mockGameState).isDetectivesPhase());
-    }
-
-    @Test
-    void testToDto_isMrXPhase_true_whenMrX() {
-        when(mockGameState.getCurrentPhase()).thenReturn(TurnType.MRX);
-        assertTrue(GameStateMapper.toDto(mockGameState).isMrXPhase());
-        assertFalse(GameStateMapper.toDto(mockGameState).isDetectivesPhase());
-    }
 }

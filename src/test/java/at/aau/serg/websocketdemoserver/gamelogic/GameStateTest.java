@@ -881,16 +881,22 @@ class GameStateTest {
     }
 
     @Test
-    void testConfirmStartPosition_positionAlreadyTakenByOtherPlayer_throwsException() {
+    void testConfirmStartPosition_positionAlreadyTakenByOtherPlayer_assignsFreePosition() {
         setupBasicLobby();
         gameState.initializePlayersFromLobby(mockLobby);
 
         gameState.confirmStartPosition(hostUser.id(), 50);
 
+        // second player requests the same position – server must silently pick a free one
         String secondId = detectiveUser1.id();
-        IllegalStateException ex = assertThrows(IllegalStateException.class,
-                () -> gameState.confirmStartPosition(secondId, 50));
-        assertTrue(ex.getMessage().contains("already taken"));
+        int fallback = gameState.confirmStartPosition(secondId, 50);
+
+        // fallback must be valid and different from the taken position
+        assertTrue(fallback >= 1 && fallback <= 199);
+        assertNotEquals(50, fallback);
+        // both players must have distinct positions
+        assertNotEquals(gameState.getPlayerPosition(hostUser.id()),
+                gameState.getPlayerPosition(secondId));
     }
 
     @Test

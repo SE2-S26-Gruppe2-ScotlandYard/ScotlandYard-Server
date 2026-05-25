@@ -15,10 +15,6 @@ public class GameStateDto {
     private String gameId;
     private int currentRound;
     private TurnType currentPhase;
-    /** Convenience flag: true when it is Mr. X's turn. */
-    private boolean isMrXPhase;
-    /** Convenience flag: true when it is the detectives' turn. */
-    private boolean isDetectivesPhase;
     private Map<String, Integer> detectivePositions;
     private Integer mrXPosition;
     private boolean doubleMoveActive;

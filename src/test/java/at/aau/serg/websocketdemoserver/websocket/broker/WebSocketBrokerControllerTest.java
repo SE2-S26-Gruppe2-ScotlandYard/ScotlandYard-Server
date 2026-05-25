@@ -1052,7 +1052,7 @@ class WebSocketBrokerControllerTest {
     // ── handleConfirmStartPosition ────────────────────────────────────────────
 
     @Test
-    void testHandleConfirmStartPosition_validPosition_broadcastsGameState() {
+    void testHandleConfirmStartPosition_validPosition_sendsAckToPlayerTopic() {
         SimpMessagingTemplate template = mock(SimpMessagingTemplate.class);
         WebSocketBrokerController localController = controllerWithMockTemplate(template);
 
@@ -1061,13 +1061,7 @@ class WebSocketBrokerControllerTest {
         StartPositionConfirmRequest req = new StartPositionConfirmRequest("conf-game-1", "player-conf", 55);
         localController.handleConfirmStartPosition(req);
 
-        // GameStateDto must be sent to the movements topic
-        verify(template, atLeastOnce()).convertAndSend(
-                eq("/topic/game/conf-game-1/movements"),
-                any(GameStateDto.class)
-        );
-
-        // Player ack on player-specific topic
+        // ONLY the player-specific topic must receive the ack – no board-state broadcast
         ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
         verify(template).convertAndSend(
                 eq("/topic/game/conf-game-1/player/player-conf/start-position"),
@@ -1076,6 +1070,12 @@ class WebSocketBrokerControllerTest {
         StartPositionResponse ack = (StartPositionResponse) captor.getValue();
         assertEquals("START_POSITION_CONFIRMED", ack.getType());
         assertEquals(55, ack.getStartPosition());
+
+        // Must NOT broadcast GameStateDto to the movements topic
+        verify(template, never()).convertAndSend(
+                eq("/topic/game/conf-game-1/movements"),
+                any(GameStateDto.class)
+        );
 
         GameController.getInstance().removeGame("conf-game-1");
     }
@@ -1138,7 +1138,7 @@ class WebSocketBrokerControllerTest {
     }
 
     @Test
-    void testHandleConfirmStartPosition_positionAlreadyTaken_returnsError() {
+    void testHandleConfirmStartPosition_positionAlreadyTaken_assignsFallbackPosition() {
         SimpMessagingTemplate template = mock(SimpMessagingTemplate.class);
         WebSocketBrokerController localController = controllerWithMockTemplate(template);
 
@@ -1157,7 +1157,7 @@ class WebSocketBrokerControllerTest {
         // first player takes position 66
         localController.handleConfirmStartPosition(new StartPositionConfirmRequest(gameId, "cp1", 66));
 
-        // second player tries the same position
+        // second player requests the same position → server assigns a free fallback
         localController.handleConfirmStartPosition(new StartPositionConfirmRequest(gameId, "cp2", 66));
 
         ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
@@ -1166,29 +1166,14 @@ class WebSocketBrokerControllerTest {
                 captor.capture()
         );
         StartPositionResponse resp = (StartPositionResponse) captor.getValue();
-        assertEquals("ERROR", resp.getType());
+        assertEquals("START_POSITION_CONFIRMED", resp.getType());
+        assertNotNull(resp.getStartPosition());
+        assertNotEquals(66, resp.getStartPosition());
+        assertTrue(resp.getStartPosition() >= 1 && resp.getStartPosition() <= 199);
 
         GameController.getInstance().removeGame(gameId);
     }
 
-    @Test
-    void testHandleConfirmStartPosition_allPlayersConfirmed_broadcastsGameStateTwice() {
-        SimpMessagingTemplate template = mock(SimpMessagingTemplate.class);
-        WebSocketBrokerController localController = controllerWithMockTemplate(template);
-
-        // Build a game with a single player so "all confirmed" triggers after one confirm
-        buildGameWithPlayer("conf-game-5", "solo");
-
-        localController.handleConfirmStartPosition(new StartPositionConfirmRequest("conf-game-5", "solo", 77));
-
-        // broadcastGameState called twice: once after set, once for "all ready"
-        verify(template, times(2)).convertAndSend(
-                eq("/topic/game/conf-game-5/movements"),
-                any(GameStateDto.class)
-        );
-
-        GameController.getInstance().removeGame("conf-game-5");
-    }
 
     // ── handleConfirmStartPosition – null / blank input guards ───────────────
 

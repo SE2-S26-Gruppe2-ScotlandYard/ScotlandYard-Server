@@ -13,8 +13,6 @@ public class GameStateMapper {
                 gameState.getGameId(),
                 gameState.getCurrentRound(),
                 phase,
-                phase == at.aau.serg.websocketdemoserver.gamelogic.turn.TurnType.MRX,
-                phase == at.aau.serg.websocketdemoserver.gamelogic.turn.TurnType.DETECTIVES,
                 gameState.getDetectivePositions(),
                 gameState.getMrXPosition(),
                 gameState.getRoundController().isDoubleMoveActive(),

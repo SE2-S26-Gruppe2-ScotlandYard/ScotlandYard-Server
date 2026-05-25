@@ -351,14 +351,15 @@ public class WebSocketBrokerController {
      * <p>Payload: {@link StartPositionConfirmRequest} with {@code gameId}, {@code playerId},
      * {@code startPosition} (int 1–199).
      *
-     * <p>On success the updated {@link GameStateDto} is broadcast to
-     * {@code /topic/game/{gameId}/movements} so all players see the confirmed position
-     * on the game board immediately.  An optional "all confirmed" broadcast is included
-     * once every player has set their start position.
-     *
-     * <p>On validation error a {@link StartPositionResponse} with {@code type="ERROR"}
-     * is sent to the player-specific topic
+     * <p>The server validates that the position is in range (1–199) and not already
+     * occupied.  If the requested position is taken a random free slot is assigned
+     * automatically (conflict-free fallback).  The final position is sent
+     * <em>exclusively</em> to the requesting player via their personal topic
      * {@code /topic/game/{gameId}/player/{playerId}/start-position}.
+     * No board-state broadcast is sent so other players cannot infer positions.
+     *
+     * <p>On validation error (out-of-range, player not found, etc.) a
+     * {@link StartPositionResponse} with {@code type="ERROR"} is sent to the same topic.
      */
     @MessageMapping("/game/start-position/confirm")
     public void handleConfirmStartPosition(StartPositionConfirmRequest request) {
@@ -379,31 +380,23 @@ public class WebSocketBrokerController {
             return;
         }
 
-        String errorTopic = TOPIC_GAME + gameId + "/player/" + playerId + "/start-position";
+        String playerTopic = TOPIC_GAME + gameId + "/player/" + playerId + "/start-position";
 
         GameState gameState = gameController.getGame(gameId);
         if (gameState == null) {
-            messagingTemplate.convertAndSend(errorTopic,
+            messagingTemplate.convertAndSend(playerTopic,
                     new StartPositionResponse("ERROR", gameId, playerId, null, "Game not found"));
             return;
         }
 
         try {
             int confirmedPosition = gameState.confirmStartPosition(playerId, request.getStartPosition());
-            // Broadcast updated board state to all players on the game board screen
-            broadcastGameState(gameId, gameState);
-
-            // Additionally notify the confirming player with an explicit ack
-            messagingTemplate.convertAndSend(errorTopic,
+            // Respond ONLY to the requesting player – no board-state broadcast
+            messagingTemplate.convertAndSend(playerTopic,
                     new StartPositionResponse("START_POSITION_CONFIRMED", gameId, playerId,
                             confirmedPosition, null));
-
-            // If all players have confirmed, send a dedicated "all ready" broadcast
-            if (gameState.allPlayersHaveStartPosition()) {
-                broadcastGameState(gameId, gameState);
-            }
         } catch (Exception e) {
-            messagingTemplate.convertAndSend(errorTopic,
+            messagingTemplate.convertAndSend(playerTopic,
                     new StartPositionResponse("ERROR", gameId, playerId, null, e.getMessage()));
         }
     }

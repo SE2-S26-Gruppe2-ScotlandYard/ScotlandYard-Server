@@ -152,14 +152,15 @@ public class GameState {
      * <ul>
      *   <li>Player must exist.</li>
      *   <li>Position must be in range 1–199 (board stations).</li>
-     *   <li>Position must not already be occupied by a <em>different</em> player.</li>
+     *   <li>If the requested position is already occupied by a <em>different</em> player,
+     *       a random free position is assigned instead (conflict-free fallback).</li>
      * </ul>
      *
      * @param playerId      ID of the confirming player
      * @param startPosition chosen start position (1–199)
-     * @return the confirmed position
+     * @return the final confirmed position (may differ from {@code startPosition} if taken)
      * @throws IllegalArgumentException if player not found or position out of range
-     * @throws IllegalStateException    if position is already taken by another player
+     * @throws IllegalStateException    if no free positions are available
      */
     public int confirmStartPosition(String playerId, int startPosition) {
         if (!players.containsKey(playerId)) {
@@ -169,13 +170,27 @@ public class GameState {
             throw new IllegalArgumentException(
                     "Start position must be between 1 and 199, got: " + startPosition);
         }
-        // Check if another player already occupies this position
-        for (Map.Entry<String, Integer> entry : playerPositions.entrySet()) {
-            if (!entry.getKey().equals(playerId) && entry.getValue().equals(startPosition)) {
-                throw new IllegalStateException(
-                        "Position " + startPosition + " is already taken by another player");
+
+        // Check if another player already occupies this position → fall back to random free slot
+        boolean taken = playerPositions.entrySet().stream()
+                .anyMatch(e -> !e.getKey().equals(playerId) && e.getValue().equals(startPosition));
+
+        if (taken) {
+            List<Integer> available = new ArrayList<>();
+            for (int i = 1; i <= 199; i++) available.add(i);
+            // Remove positions held by other players (keep player's own slot free for reassignment)
+            playerPositions.forEach((pid, pos) -> {
+                if (!pid.equals(playerId)) available.remove(pos);
+            });
+            if (available.isEmpty()) {
+                throw new IllegalStateException("No free start positions available");
             }
+            Collections.shuffle(available, RANDOM);
+            int fallback = available.getFirst();
+            playerPositions.put(playerId, fallback);
+            return fallback;
         }
+
         playerPositions.put(playerId, startPosition);
         return startPosition;
     }
