@@ -8,11 +8,10 @@ public class GameStateMapper {
     private GameStateMapper() {}
 
     public static GameStateDto toDto(GameState gameState) {
-        at.aau.serg.websocketdemoserver.gamelogic.turn.TurnType phase = gameState.getCurrentPhase();
         return new GameStateDto(
                 gameState.getGameId(),
                 gameState.getCurrentRound(),
-                phase,
+                gameState.getCurrentPhase(),
                 gameState.getDetectivePositions(),
                 gameState.getMrXPosition(),
                 gameState.getRoundController().isDoubleMoveActive(),
