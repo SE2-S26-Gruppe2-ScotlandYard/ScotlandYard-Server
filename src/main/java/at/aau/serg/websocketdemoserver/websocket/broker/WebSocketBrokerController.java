@@ -1,6 +1,7 @@
 package at.aau.serg.websocketdemoserver.websocket.broker;
 
 import at.aau.serg.websocketdemoserver.dtos.game.GameStateDto;
+import at.aau.serg.websocketdemoserver.dtos.game.StartPositionConfirmRequest;
 import at.aau.serg.websocketdemoserver.dtos.game.StartPositionRequest;
 import at.aau.serg.websocketdemoserver.dtos.game.StartPositionResponse;
 import at.aau.serg.websocketdemoserver.dtos.StompMessage;
@@ -305,8 +306,23 @@ public class WebSocketBrokerController {
 
     @MessageMapping("/game/start-position/request")
     public void handleStartPositionRequest(StartPositionRequest request) {
+        if (request == null) {
+            return; // no recipient address available – silently ignore
+        }
         String gameId = request.getGameId();
         String playerId = request.getPlayerId();
+
+        if (gameId == null || gameId.isBlank()) {
+            messagingTemplate.convertAndSend("/topic/game/error",
+                    new StartPositionResponse("ERROR", null, playerId, null, "gameId must not be blank"));
+            return;
+        }
+        if (playerId == null || playerId.isBlank()) {
+            messagingTemplate.convertAndSend(TOPIC_GAME + gameId + "/player/unknown/start-position",
+                    new StartPositionResponse("ERROR", gameId, null, null, "playerId must not be blank"));
+            return;
+        }
+
         String topic = TOPIC_GAME + gameId + "/player/" + playerId + "/start-position";
 
         GameState gameState = gameController.getGame(gameId);
@@ -317,11 +333,70 @@ public class WebSocketBrokerController {
         }
 
         try {
-            int position = gameState.assignStartPosition(playerId);
+            int position = gameState.assignStartPosition(playerId, request.getSelectedStartPosition());
             messagingTemplate.convertAndSend(topic,
                     new StartPositionResponse("START_POSITION_ASSIGNED", gameId, playerId, position, null));
+            // Broadcast the updated board state so every client renders the new figure immediately
+            broadcastGameState(gameId, gameState);
         } catch (Exception e) {
             messagingTemplate.convertAndSend(topic,
+                    new StartPositionResponse("ERROR", gameId, playerId, null, e.getMessage()));
+        }
+    }
+
+    /**
+     * Confirms a client-chosen start position (spinner confirm flow).
+     *
+     * <p>Destination: {@code /app/game/start-position/confirm}
+     * <p>Payload: {@link StartPositionConfirmRequest} with {@code gameId}, {@code playerId},
+     * {@code startPosition} (int 1–199).
+     *
+     * <p>The server validates that the position is in range (1–199) and not already
+     * occupied.  If the requested position is taken a random free slot is assigned
+     * automatically (conflict-free fallback).  The final position is sent
+     * <em>exclusively</em> to the requesting player via their personal topic
+     * {@code /topic/game/{gameId}/player/{playerId}/start-position}.
+     * No board-state broadcast is sent so other players cannot infer positions.
+     *
+     * <p>On validation error (out-of-range, player not found, etc.) a
+     * {@link StartPositionResponse} with {@code type="ERROR"} is sent to the same topic.
+     */
+    @MessageMapping("/game/start-position/confirm")
+    public void handleConfirmStartPosition(StartPositionConfirmRequest request) {
+        if (request == null) {
+            return; // no recipient address available – silently ignore
+        }
+        String gameId  = request.getGameId();
+        String playerId = request.getPlayerId();
+
+        if (gameId == null || gameId.isBlank()) {
+            messagingTemplate.convertAndSend("/topic/game/error",
+                    new StartPositionResponse("ERROR", null, playerId, null, "gameId must not be blank"));
+            return;
+        }
+        if (playerId == null || playerId.isBlank()) {
+            messagingTemplate.convertAndSend(TOPIC_GAME + gameId + "/player/unknown/start-position",
+                    new StartPositionResponse("ERROR", gameId, null, null, "playerId must not be blank"));
+            return;
+        }
+
+        String playerTopic = TOPIC_GAME + gameId + "/player/" + playerId + "/start-position";
+
+        GameState gameState = gameController.getGame(gameId);
+        if (gameState == null) {
+            messagingTemplate.convertAndSend(playerTopic,
+                    new StartPositionResponse("ERROR", gameId, playerId, null, "Game not found"));
+            return;
+        }
+
+        try {
+            int confirmedPosition = gameState.confirmStartPosition(playerId, request.getStartPosition());
+            // Respond ONLY to the requesting player – no board-state broadcast
+            messagingTemplate.convertAndSend(playerTopic,
+                    new StartPositionResponse("START_POSITION_CONFIRMED", gameId, playerId,
+                            confirmedPosition, null));
+        } catch (Exception e) {
+            messagingTemplate.convertAndSend(playerTopic,
                     new StartPositionResponse("ERROR", gameId, playerId, null, e.getMessage()));
         }
     }

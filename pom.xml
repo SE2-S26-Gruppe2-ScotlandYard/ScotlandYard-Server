@@ -10,9 +10,9 @@
     </parent>
     <groupId>at.aau.serg</groupId>
     <artifactId>ScotlandYard-Server</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
-    <name>WebSocketDemo-Server</name>
-    <description>WebSocketDemo-Server</description>
+    <version>v1.0.0</version>
+    <name>ScotlandYard-Server</name>
+    <description>ScotlandYard-Server</description>
     <properties>
         <java.version>21</java.version>
         <sonar.organization>se2-s26-gruppe2-scotlandyard</sonar.organization>

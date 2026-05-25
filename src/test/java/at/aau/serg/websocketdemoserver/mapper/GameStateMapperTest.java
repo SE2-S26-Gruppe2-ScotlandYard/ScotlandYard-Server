@@ -148,4 +148,5 @@ class GameStateMapperTest {
         verify(mockGameState).getMrXMoveHistory();
         verify(mockGameState).getMrXRevealedPositions();
     }
+
 }

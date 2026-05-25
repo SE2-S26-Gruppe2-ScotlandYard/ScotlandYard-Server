@@ -83,8 +83,8 @@ class GameStateDtoTest {
 
     @Test
     void testNullMrXPosition() {
-        GameStateDto dto = new GameStateDto("g1", 1, TurnType.MRX, Map.of(), null, false, 1,
-                Map.of(), Map.of(), List.of(), Map.of());
+        GameStateDto dto = new GameStateDto("g1", 1, TurnType.MRX,
+                Map.of(), null, false, 1, Map.of(), Map.of(), List.of(), Map.of());
         assertThat(dto.getMrXPosition()).isNull();
     }
 }
