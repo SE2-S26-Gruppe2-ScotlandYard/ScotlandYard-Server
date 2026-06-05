@@ -2,6 +2,7 @@ package at.aau.serg.websocketdemoserver.websocket.broker;
 
 import at.aau.serg.websocketdemoserver.service.GameController;
 import at.aau.serg.websocketdemoserver.service.LobbyService;
+import at.aau.serg.websocketdemoserver.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,11 +19,13 @@ public class HealthController {
 
     private final GameController gameController;
     private final LobbyService lobbyService;
+    private final UserService userService;
 
     @Autowired
-    public HealthController(GameController gameController, LobbyService lobbyService) {
+    public HealthController(GameController gameController, LobbyService lobbyService, UserService userService) {
         this.gameController = gameController;
         this.lobbyService = lobbyService;
+        this.userService = userService;
     }
 
     @GetMapping
@@ -30,6 +33,7 @@ public class HealthController {
         Map<String, Object> body = Map.of(
                 "status", "UP",
                 "timestamp", Instant.now().toString(),
+                "activeUsers", userService.getActiveUserCount(),
                 "activeGames", gameController.getActiveGamesCount(),
                 "activeLobbies", lobbyService.getActiveLobbies().size()
         );
