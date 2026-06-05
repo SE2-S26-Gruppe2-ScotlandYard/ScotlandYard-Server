@@ -61,4 +61,13 @@ public class UserServiceTest {
         assertDoesNotThrow(() -> userService.unregisterUser(""));
         assertDoesNotThrow(() -> userService.unregisterUser("   "));
     }
+
+    @Test
+    void testGetActiveUserCount() {
+        userService.registerUser("UserOne");
+        userService.registerUser("UserTwo");
+        userService.registerUser("UserThree");
+
+        assertEquals(3, userService.getActiveUserCount());
+    }
 }
