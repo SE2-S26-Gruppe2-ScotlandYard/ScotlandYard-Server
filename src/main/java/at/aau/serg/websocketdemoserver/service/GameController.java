@@ -29,4 +29,8 @@ public class GameController {
         }
         return gameController;
     }
+
+    public int getActiveGamesCount() {
+        return activeGames.size();
+    }
 }
