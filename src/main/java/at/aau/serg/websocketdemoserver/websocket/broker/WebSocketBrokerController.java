@@ -37,11 +37,12 @@ public class WebSocketBrokerController {
     private final SimpMessagingTemplate messagingTemplate;
     private final UserService userService;
 
-    @Autowired
+    // constructor for tests
     public WebSocketBrokerController(SimpMessagingTemplate messagingTemplate) {
         this(messagingTemplate, GameController.getInstance(), new LobbyService(), new UserService());
     }
 
+    @Autowired
     public WebSocketBrokerController(SimpMessagingTemplate messagingTemplate,
                                      GameController gameController,
                                      LobbyService lobbyService,
