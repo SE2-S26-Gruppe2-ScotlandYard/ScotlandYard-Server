@@ -12,7 +12,9 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.Instant;
 import java.util.Map;
 
-/** Simple HTTP health endpoint. */
+/**
+ * Simple HTTP health endpoint.
+ */
 @RestController
 @RequestMapping("/health")
 public class HealthController {
@@ -30,13 +32,12 @@ public class HealthController {
 
     @GetMapping
     public ResponseEntity<Map<String, Object>> health() {
-        Map<String, Object> body = Map.of(
-                "status", "UP",
-                "timestamp", Instant.now().toString(),
-                "activeUsers", userService.getActiveUserCount(),
-                "activeGames", gameController.getActiveGamesCount(),
-                "activeLobbies", lobbyService.getActiveLobbies().size()
-        );
+        Map<String, Object> body = new java.util.LinkedHashMap<>();
+        body.put("status", "UP");
+        body.put("timestamp", Instant.now().toString());
+        body.put("activeUsers", userService.getActiveUserCount());
+        body.put("activeLobbies", lobbyService.getActiveLobbies().size());
+        body.put("activeGames", gameController.getActiveGamesCount());
         return ResponseEntity.ok(body);
     }
 }
