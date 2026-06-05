@@ -41,28 +41,28 @@ class HealthControllerTest {
     }
 
     @Test
-    void health_isCalled_returnsStatusOk() {
+    void testHealth_isCalled_returnsStatusOk() {
         ResponseEntity<Map<String, Object>> response = healthController.health();
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
     }
 
     @Test
-    void health_isCalled_bodyIsNotNull() {
+    void testHealth_isCalled_bodyIsNotNull() {
         ResponseEntity<Map<String, Object>> response = healthController.health();
 
         assertNotNull(response.getBody());
     }
 
     @Test
-    void health_isCalled_statusIsUp() {
+    void testHealth_isCalled_statusIsUp() {
         Map<String, Object> body = healthController.health().getBody();
 
         assertEquals("UP", body.get("status"));
     }
 
     @Test
-    void health_isCalled_timestampIsPresent() {
+    void testHealth_isCalled_timestampIsPresent() {
         Map<String, Object> body = healthController.health().getBody();
 
         assertNotNull(body.get("timestamp"));
@@ -70,14 +70,14 @@ class HealthControllerTest {
     }
 
     @Test
-    void health_whenNoActiveGames_activeGamesIsZero() {
+    void testHealth_whenNoActiveGames_activeGamesIsZero() {
         Map<String, Object> body = healthController.health().getBody();
 
         assertEquals(0, body.get("activeGames"));
     }
 
     @Test
-    void health_whenMultipleActiveGames_returnsCorrectCount() {
+    void testHealth_whenMultipleActiveGames_returnsCorrectCount() {
         when(gameController.getActiveGamesCount()).thenReturn(3);
 
         Map<String, Object> body = healthController.health().getBody();
@@ -86,14 +86,14 @@ class HealthControllerTest {
     }
 
     @Test
-    void health_whenNoActiveLobbies_activeLobbiesIsZero() {
+    void testHealth_whenNoActiveLobbies_activeLobbiesIsZero() {
         Map<String, Object> body = healthController.health().getBody();
 
         assertEquals(0, body.get("activeLobbies"));
     }
 
     @Test
-    void health_whenMultipleActiveLobbies_returnsCorrectCount() {
+    void testHealth_whenMultipleActiveLobbies_returnsCorrectCount() {
         when(lobbyService.getActiveLobbies()).thenReturn(Map.of("l1", mock(Lobby.class), "l2", mock(Lobby.class), "l3", mock(Lobby.class)));
 
         Map<String, Object> body = healthController.health().getBody();
@@ -102,14 +102,14 @@ class HealthControllerTest {
     }
 
     @Test
-    void health_whenNoUsers_activeUsersIsZero() {
+    void testHealth_whenNoUsers_activeUsersIsZero() {
         Map<String, Object> body = healthController.health().getBody();
 
         assertEquals(0, body.get("activeUsers"));
     }
 
     @Test
-    void health_whenMultipleActiveUsers_returnsCorrectCount() {
+    void testHealth_whenMultipleActiveUsers_returnsCorrectCount() {
         when(userService.getActiveUserCount()).thenReturn(3);
 
         Map<String, Object> body = healthController.health().getBody();
