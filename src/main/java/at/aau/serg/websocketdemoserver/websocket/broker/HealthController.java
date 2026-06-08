@@ -1,0 +1,43 @@
+package at.aau.serg.websocketdemoserver.websocket.broker;
+
+import at.aau.serg.websocketdemoserver.service.GameController;
+import at.aau.serg.websocketdemoserver.service.LobbyService;
+import at.aau.serg.websocketdemoserver.service.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.time.Instant;
+import java.util.Map;
+
+/**
+ * Simple HTTP health endpoint.
+ */
+@RestController
+@RequestMapping("/health")
+public class HealthController {
+
+    private final GameController gameController;
+    private final LobbyService lobbyService;
+    private final UserService userService;
+
+    @Autowired
+    public HealthController(GameController gameController, LobbyService lobbyService, UserService userService) {
+        this.gameController = gameController;
+        this.lobbyService = lobbyService;
+        this.userService = userService;
+    }
+
+    @GetMapping
+    public ResponseEntity<Map<String, Object>> health() {
+        Map<String, Object> body = new java.util.LinkedHashMap<>();
+        body.put("status", "UP");
+        body.put("timestamp", Instant.now().toString());
+        body.put("activeUsers", userService.getActiveUserCount());
+        body.put("activeLobbies", lobbyService.getActiveLobbies().size());
+        body.put("activeGames", gameController.getActiveGamesCount());
+        return ResponseEntity.ok(body);
+    }
+}

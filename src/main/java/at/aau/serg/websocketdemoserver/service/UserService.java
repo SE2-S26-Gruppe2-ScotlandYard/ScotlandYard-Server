@@ -37,4 +37,8 @@ public class UserService {
             activeUsers.remove(nickName.trim().toLowerCase());
         }
     }
+
+    public int getActiveUserCount() {
+        return activeUsers.size();
+    }
 }
