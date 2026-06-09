@@ -70,4 +70,38 @@ public class UserServiceTest {
 
         assertEquals(3, userService.getActiveUserCount());
     }
+
+    @Test
+    void testRegisterUserThrowsExceptionIfNameTooLong() {
+        assertThrows(IllegalArgumentException.class, () -> userService.registerUser("toolongname"));
+        assertThrows(IllegalArgumentException.class, () -> userService.registerUser("123456789"));
+    }
+
+    @Test
+    void testRegisterUserSuccessWithMaxLength() {
+        User user = userService.registerUser("abcd1234");
+        assertNotNull(user);
+        assertEquals("abcd1234", user.nickName());
+    }
+
+    @Test
+    void testRegisterUserThrowsExceptionIfNameHasInvalidChars() {
+        assertThrows(IllegalArgumentException.class, () -> userService.registerUser("user!"));
+        assertThrows(IllegalArgumentException.class, () -> userService.registerUser("user 1"));
+        assertThrows(IllegalArgumentException.class, () -> userService.registerUser("user#name"));
+    }
+
+    @Test
+    void testRegisterUserSuccessWithZeroAndUppercase() {
+        User user = userService.registerUser("User0");
+        assertNotNull(user);
+        assertEquals("User0", user.nickName());
+    }
+
+    @Test
+    void testRegisterUserSuccessWithDigits() {
+        User user = userService.registerUser("player1");
+        assertNotNull(user);
+        assertEquals("player1", user.nickName());
+    }
 }
