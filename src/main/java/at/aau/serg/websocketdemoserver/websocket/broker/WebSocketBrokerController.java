@@ -263,7 +263,10 @@ public class WebSocketBrokerController {
             if (lobby == null) throw new IllegalArgumentException("Lobby not found");
             if (!lobby.getHostId().equals(message.getRequesterId()))
                 throw new IllegalStateException("Only host can start the game");
-
+            if (!lobby.allPlayersHaveSelectedRole())
+                throw new IllegalStateException("Not all players have selected a role");
+            if (!lobby.hasExactlyOneMrX())
+                throw new IllegalStateException("Exactly one player must play as Mr. X");
 
             GameState gameState = new GameState(lobby.getId());
             gameState.initializePlayersFromLobby(lobby);
