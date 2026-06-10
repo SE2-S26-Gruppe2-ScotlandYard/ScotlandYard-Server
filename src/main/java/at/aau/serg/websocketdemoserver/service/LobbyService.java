@@ -14,8 +14,12 @@ public class LobbyService {
 
     public Lobby createLobby(String lobbyName, User host) {
         Lobby lobby = new Lobby(lobbyName, host);
-        // Sicherstellen dass der Code eindeutig ist
+        int attempts = 0;
+        // Regenerate until the code is unique (collision is extremely rare)
         while (activeLobbies.containsKey(lobby.getId())) {
+            if (++attempts > 100) {
+                throw new IllegalStateException("Could not generate a unique lobby code");
+            }
             lobby = new Lobby(lobbyName, host);
         }
         activeLobbies.put(lobby.getId(), lobby);

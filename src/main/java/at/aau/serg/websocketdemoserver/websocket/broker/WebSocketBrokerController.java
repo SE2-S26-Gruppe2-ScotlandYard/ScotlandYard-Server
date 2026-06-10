@@ -25,11 +25,14 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.messaging.simp.annotation.SendToUser;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Controller;
 
 @Controller
 public class WebSocketBrokerController {
 
+    private static final Logger log = LoggerFactory.getLogger(WebSocketBrokerController.class);
     private static final String TOPIC_GAME = "/topic/game/";
 
     private final GameController gameController;
@@ -84,8 +87,7 @@ public class WebSocketBrokerController {
     @MessageMapping("/hello")
     @SendTo("/topic/hello-response")
     public String handleHello(String text) {
-        String response = "echo from broker: " + text;
-        return response;
+        return "echo from broker: " + text;
     }
 
     @MessageMapping("/object")
@@ -487,19 +489,21 @@ public class WebSocketBrokerController {
                 return;
             }
 
-            System.out.println("[DEBUG] Move executed successfully, new position=" + gameState.getPlayerPosition(movement.getPlayerId()));
+            log.debug("Move executed successfully, new position={}", gameState.getPlayerPosition(movement.getPlayerId()));
 
             switch (gameState.checkGameResult()) {
                 case DETECTIVES_WIN -> {
                     broadcastGameState(gameId, gameState);
                     broadcastGameOver(gameId, "DETECTIVES_WIN");
                     sendMoveResponse(gameId, new MovementResponse(true, "Movement successful: Detectives win!", gameState.getPlayerPosition(movement.getPlayerId()), null));
+                    gameController.removeGame(gameId);
                     return;
                 }
                 case MRX_WINS -> {
                     broadcastGameState(gameId, gameState);
                     broadcastGameOver(gameId, "MRX_WINS");
                     sendMoveResponse(gameId, new MovementResponse(true, "Movement successful: Mr. X wins!", gameState.getPlayerPosition(movement.getPlayerId()), null));
+                    gameController.removeGame(gameId);
                     return;
                 }
             }
