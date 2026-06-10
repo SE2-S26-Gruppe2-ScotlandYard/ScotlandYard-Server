@@ -319,11 +319,13 @@ public class WebSocketBrokerController {
         String playerId = request.getPlayerId();
 
         if (gameId == null || gameId.isBlank()) {
-            // No valid topic available – log only, cannot reach any client
+            messagingTemplate.convertAndSend("/topic/game/error",
+                    new StartPositionResponse("ERROR", null, null, null, "gameId must not be blank"));
             return;
         }
         if (playerId == null || playerId.isBlank()) {
-            // No valid player topic – log only
+            messagingTemplate.convertAndSend(TOPIC_GAME + gameId + "/player/unknown/start-position",
+                    new StartPositionResponse("ERROR", gameId, "unknown", null, "playerId must not be blank"));
             return;
         }
 
@@ -374,9 +376,13 @@ public class WebSocketBrokerController {
         String playerId = request.getPlayerId();
 
         if (gameId == null || gameId.isBlank()) {
+            messagingTemplate.convertAndSend("/topic/game/error",
+                    new StartPositionResponse("ERROR", null, null, null, "gameId must not be blank"));
             return;
         }
         if (playerId == null || playerId.isBlank()) {
+            messagingTemplate.convertAndSend(TOPIC_GAME + gameId + "/player/unknown/start-position",
+                    new StartPositionResponse("ERROR", gameId, "unknown", null, "playerId must not be blank"));
             return;
         }
 

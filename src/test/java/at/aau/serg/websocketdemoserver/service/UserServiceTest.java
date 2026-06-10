@@ -64,9 +64,9 @@ public class UserServiceTest {
 
     @Test
     void testGetActiveUserCount() {
-        userService.registerUser("UserOne");
-        userService.registerUser("UserTwo");
-        userService.registerUser("UserThree");
+        userService.registerUser("User1");
+        userService.registerUser("User2");
+        userService.registerUser("User3");
 
         assertEquals(3, userService.getActiveUserCount());
     }

@@ -563,7 +563,7 @@ class WebSocketBrokerControllerTest {
     @Test
     void testHandleUserConnect_duplicateNickname_returnsError() {
         UserConnectMessage first = new UserConnectMessage();
-        first.setNickName("UniqueUser_" + System.nanoTime());
+        first.setNickName("dupetest");
         controller.handleUserConnect(first);
 
         UserConnectMessage second = new UserConnectMessage();
