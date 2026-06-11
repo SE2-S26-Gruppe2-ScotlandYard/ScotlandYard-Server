@@ -35,7 +35,7 @@ public class UserService {
         }
 
         if (activeUsers.containsKey(lowerCaseName)) {
-            throw new IllegalArgumentException("Nickname already taken");
+            return activeUsers.get(lowerCaseName); // Reconnect: return existing user
         }
 
         String generatedUserId = String.valueOf(userIdSequence.getAndIncrement());

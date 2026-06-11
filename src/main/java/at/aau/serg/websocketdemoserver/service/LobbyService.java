@@ -65,6 +65,30 @@ public class LobbyService {
         lobby.addUser(user);
         return lobby;
     }
+    /**
+     * Rejoin a lobby after disconnect.
+     * If the player is already in the lobby, returns the lobby directly (no error).
+     * If the player is not in the lobby anymore, adds them back.
+     */
+    public Lobby rejoinLobby(String lobbyId, User user) {
+        Lobby lobby = activeLobbies.get(lobbyId);
+
+        if (lobby == null) {
+            throw new IllegalArgumentException("Lobby not found");
+        }
+
+        // Player is already in the lobby (e.g. just briefly disconnected)
+        boolean alreadyInLobby = lobby.getUsers().stream()
+                .anyMatch(existingUser -> existingUser.id().equals(user.id()));
+
+        if (alreadyInLobby) {
+            return lobby; // Just return the current lobby state
+        }
+
+        // Player was removed, add them back
+        lobby.rejoinUser(user);
+        return lobby;
+    }
 
     public void leaveLobby(String lobbyId, String userId) {
         Lobby lobby = activeLobbies.get(lobbyId);
