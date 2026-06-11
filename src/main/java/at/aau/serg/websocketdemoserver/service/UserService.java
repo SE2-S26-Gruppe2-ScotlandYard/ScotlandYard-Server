@@ -6,9 +6,13 @@ import org.springframework.stereotype.Service;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Pattern;
 
 @Service
 public class UserService {
+
+    private static final int MAX_NICKNAME_LENGTH = 8;
+    private static final Pattern VALID_NICKNAME_PATTERN = Pattern.compile("^[a-z0-9]+$");
 
     private final Map<String, User> activeUsers = new ConcurrentHashMap<>();
     private final AtomicInteger userIdSequence = new AtomicInteger(1);
@@ -18,14 +22,24 @@ public class UserService {
             throw new IllegalArgumentException("Nickname cannot be empty");
         }
 
-        String lowerCaseName = nickName.trim().toLowerCase();
+        String trimmed = nickName.trim();
+
+        if (trimmed.length() > MAX_NICKNAME_LENGTH) {
+            throw new IllegalArgumentException("Nickname must be at most 8 characters long");
+        }
+
+        String lowerCaseName = trimmed.toLowerCase();
+
+        if (!VALID_NICKNAME_PATTERN.matcher(lowerCaseName).matches()) {
+            throw new IllegalArgumentException("Nickname may only contain letters (a-z) and digits (1-9)");
+        }
 
         if (activeUsers.containsKey(lowerCaseName)) {
             throw new IllegalArgumentException("Nickname already taken");
         }
 
         String generatedUserId = String.valueOf(userIdSequence.getAndIncrement());
-        User newUser = new User(generatedUserId, nickName.trim());
+        User newUser = new User(generatedUserId, trimmed);
 
         activeUsers.put(lowerCaseName, newUser);
 

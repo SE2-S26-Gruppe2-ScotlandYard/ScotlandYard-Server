@@ -563,7 +563,7 @@ class WebSocketBrokerControllerTest {
     @Test
     void testHandleUserConnect_duplicateNickname_returnsError() {
         UserConnectMessage first = new UserConnectMessage();
-        first.setNickName("UniqueUser_" + System.nanoTime());
+        first.setNickName("dupetest");
         controller.handleUserConnect(first);
 
         UserConnectMessage second = new UserConnectMessage();
@@ -1236,5 +1236,107 @@ class WebSocketBrokerControllerTest {
         verify(template).convertAndSend(
                 eq("/topic/game/some-game/player/unknown/start-position"), captor.capture());
         assertEquals("ERROR", ((StartPositionResponse) captor.getValue()).getType());
+    }
+
+    // ── BackToLobby ───────────────────────────────────────────────────────────
+
+    @Test
+    void testHandleBackToLobby_hostCanReturn() {
+        CreateLobbyMessage createMsg = new CreateLobbyMessage("TestLobby", "1", "Host");
+        controller.handleCreateLobby(createMsg);
+        var captor = ArgumentCaptor.forClass(LobbyResponse.class);
+        verify(messagingTemplate, atLeastOnce()).convertAndSend(eq("/topic/lobby"), captor.capture());
+        String lobbyId = captor.getValue().getLobbyId();
+
+        BackToLobbyMessage msg = new BackToLobbyMessage();
+        msg.setLobbyId(lobbyId);
+        msg.setRequesterId("1");
+        controller.handleBackToLobby(msg);
+
+        verify(messagingTemplate, atLeastOnce()).convertAndSend(
+                eq("/topic/lobby/" + lobbyId),
+                argThat((LobbyResponse r) -> r.isSuccess()
+                        && "Host returned to Lobby".equals(r.getMessage()))
+        );
+    }
+
+    @Test
+    void testHandleBackToLobby_failsForNonHost() {
+        CreateLobbyMessage createMsg = new CreateLobbyMessage("TestLobby", "1", "Host");
+        controller.handleCreateLobby(createMsg);
+        var captor = ArgumentCaptor.forClass(LobbyResponse.class);
+        verify(messagingTemplate, atLeastOnce()).convertAndSend(eq("/topic/lobby"), captor.capture());
+        String lobbyId = captor.getValue().getLobbyId();
+
+        controller.handleJoinLobby(new JoinLobbyMessage(lobbyId, "2", "Player"));
+
+        BackToLobbyMessage msg = new BackToLobbyMessage();
+        msg.setLobbyId(lobbyId);
+        msg.setRequesterId("2");
+        controller.handleBackToLobby(msg);
+
+        verify(messagingTemplate).convertAndSend(
+                eq("/topic/player/2"),
+                argThat((LobbyResponse r) -> !r.isSuccess())
+        );
+    }
+
+    @Test
+    void testHandleBackToLobby_failsWhenLobbyNotFound() {
+        BackToLobbyMessage msg = new BackToLobbyMessage();
+        msg.setLobbyId("missing-lobby");
+        msg.setRequesterId("1");
+        controller.handleBackToLobby(msg);
+
+        verify(messagingTemplate).convertAndSend(
+                eq("/topic/player/1"),
+                argThat((LobbyResponse r) -> !r.isSuccess())
+        );
+    }
+
+    // ── StartGame – missing branches ──────────────────────────────────────────
+
+    @Test
+    void testHandleStartGame_failsWhenNotAllRolesSelected() {
+        CreateLobbyMessage createMsg = new CreateLobbyMessage("TestLobby", "host-1", "Host");
+        controller.handleCreateLobby(createMsg);
+        var captor = ArgumentCaptor.forClass(LobbyResponse.class);
+        verify(messagingTemplate, atLeastOnce()).convertAndSend(eq("/topic/lobby"), captor.capture());
+        String lobbyId = captor.getValue().getLobbyId();
+
+        controller.handleJoinLobby(new JoinLobbyMessage(lobbyId, "player-2", "Player2"));
+        // roles NOT set → allPlayersHaveSelectedRole() returns false
+
+        StartGameMessage msg = new StartGameMessage(lobbyId, "host-1");
+        controller.handleStartGame(msg);
+
+        verify(messagingTemplate, atLeastOnce()).convertAndSend(
+                eq("/topic/player/host-1"),
+                argThat((LobbyResponse r) -> !r.isSuccess()
+                        && "Not all players have selected a role".equals(r.getMessage()))
+        );
+    }
+
+    @Test
+    void testHandleStartGame_failsWhenNoMrX() {
+        CreateLobbyMessage createMsg = new CreateLobbyMessage("TestLobby", "host-1", "Host");
+        controller.handleCreateLobby(createMsg);
+        var captor = ArgumentCaptor.forClass(LobbyResponse.class);
+        verify(messagingTemplate, atLeastOnce()).convertAndSend(eq("/topic/lobby"), captor.capture());
+        String lobbyId = captor.getValue().getLobbyId();
+
+        controller.handleJoinLobby(new JoinLobbyMessage(lobbyId, "player-2", "Player2"));
+        // both select DETECTIVE → hasExactlyOneMrX() returns false
+        controller.handleSetRole(new SetRoleMessage(lobbyId, "host-1",   "host-1",   "DETECTIVE"));
+        controller.handleSetRole(new SetRoleMessage(lobbyId, "player-2", "player-2", "DETECTIVE"));
+
+        StartGameMessage msg = new StartGameMessage(lobbyId, "host-1");
+        controller.handleStartGame(msg);
+
+        verify(messagingTemplate, atLeastOnce()).convertAndSend(
+                eq("/topic/player/host-1"),
+                argThat((LobbyResponse r) -> !r.isSuccess()
+                        && "Exactly one player must play as Mr. X".equals(r.getMessage()))
+        );
     }
 }
