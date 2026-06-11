@@ -10,17 +10,31 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 public class LobbyService {
 
+    @FunctionalInterface
+    interface LobbyFactory {
+        Lobby create(String name, User host);
+    }
+
     private final Map<String, Lobby> activeLobbies = new ConcurrentHashMap<>();
+    private final LobbyFactory lobbyFactory;
+
+    public LobbyService() {
+        this(Lobby::new);
+    }
+
+    LobbyService(LobbyFactory factory) {
+        this.lobbyFactory = factory;
+    }
 
     public Lobby createLobby(String lobbyName, User host) {
-        Lobby lobby = new Lobby(lobbyName, host);
+        Lobby lobby = lobbyFactory.create(lobbyName, host);
         int attempts = 0;
         // Regenerate until the code is unique (collision is extremely rare)
         while (activeLobbies.containsKey(lobby.getId())) {
             if (++attempts > 100) {
                 throw new IllegalStateException("Could not generate a unique lobby code");
             }
-            lobby = new Lobby(lobbyName, host);
+            lobby = lobbyFactory.create(lobbyName, host);
         }
         activeLobbies.put(lobby.getId(), lobby);
         return lobby;

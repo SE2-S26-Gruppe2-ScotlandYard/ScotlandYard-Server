@@ -5,7 +5,10 @@ import at.aau.serg.websocketdemoserver.lobby.Role;
 import at.aau.serg.websocketdemoserver.lobby.User;
 import org.junit.jupiter.api.Test;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 public class LobbyServiceTest {
 
@@ -249,5 +252,45 @@ public class LobbyServiceTest {
         service.setRole(lobby.getId(), host.id(), host.id(), "MRX");
 
         assertTrue(lobby.getReadyStatus().get(host.id()), "Player should be auto-marked ready after selecting a role");
+    }
+
+    // ── createLobby collision handling ────────────────────────────────────────
+
+    @Test
+    void testCreateLobby_resolvesSingleCollision() {
+        // Factory returns "FIXED" twice (collision), then "OTHER" (resolved)
+        String[] ids = {"FIXED", "FIXED", "OTHER"};
+        AtomicInteger idx = new AtomicInteger(0);
+
+        LobbyService service = new LobbyService((name, host) -> {
+            Lobby lobby = mock(Lobby.class);
+            when(lobby.getId()).thenReturn(ids[idx.getAndIncrement()]);
+            return lobby;
+        });
+
+        User host = new User("1", "Host");
+        service.createLobby("First", host);          // consumes ids[0]="FIXED", added to map
+
+        Lobby second = service.createLobby("Second", host); // ids[1]="FIXED" → collision → ids[2]="OTHER"
+        assertNotNull(second);
+        assertEquals("OTHER", second.getId());
+    }
+
+    @Test
+    void testCreateLobby_throwsAfter100Collisions() {
+        LobbyService service = new LobbyService((name, host) -> {
+            Lobby lobby = mock(Lobby.class);
+            when(lobby.getId()).thenReturn("ALWAYS-SAME");
+            return lobby;
+        });
+
+        User host = new User("1", "Host");
+        service.createLobby("First", host); // "ALWAYS-SAME" added to map
+
+        IllegalStateException ex = assertThrows(
+                IllegalStateException.class,
+                () -> service.createLobby("Second", host)
+        );
+        assertEquals("Could not generate a unique lobby code", ex.getMessage());
     }
 }
