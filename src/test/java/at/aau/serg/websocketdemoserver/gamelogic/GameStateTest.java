@@ -990,4 +990,131 @@ class GameStateTest {
         int pos = gameState.confirmStartPosition(hostUser.id(), 199);
         assertEquals(199, pos);
     }
+
+    // hasValidMoves
+
+    @Test
+    void testHasValidMoves_nullPosition_returnsTrue() {
+        setupBasicMrxLobby();
+        gameState.initializePlayersFromLobby(mockLobby);
+        // detectiveUser1 has no position assigned yet
+        assertTrue(gameState.hasValidMoves(detectiveUser1.id()));
+    }
+
+    @Test
+    void testHasValidMoves_unknownPlayer_returnsTrue() {
+        // unknown player → no position → returns true (safe default)
+        assertTrue(gameState.hasValidMoves("nonexistent"));
+    }
+
+    @Test
+    void testHasValidMoves_withFullTickets_returnsTrue() {
+        setupBasicMrxLobby();
+        gameState.initializePlayersFromLobby(mockLobby);
+        gameState.setPlayerPosition(detectiveUser1.id(), 77); // has WALKING/ESCOOTER/CARSHARING connections
+        assertTrue(gameState.hasValidMoves(detectiveUser1.id()));
+    }
+
+    @Test
+    void testHasValidMoves_noTickets_returnsFalse() {
+        setupBasicMrxLobby();
+        gameState.initializePlayersFromLobby(mockLobby);
+        gameState.setPlayerPosition(detectiveUser1.id(), 77);
+
+        // drain all detective tickets
+        var detective = gameState.getPlayer(detectiveUser1.id());
+        for (int i = 0; i < 10; i++) detective.useTicket(at.aau.serg.websocketdemoserver.gamelogic.player.TicketType.WALKING);
+        for (int i = 0; i < 8;  i++) detective.useTicket(at.aau.serg.websocketdemoserver.gamelogic.player.TicketType.ESCOOTER);
+        for (int i = 0; i < 4;  i++) detective.useTicket(at.aau.serg.websocketdemoserver.gamelogic.player.TicketType.CARSHARING);
+
+        assertFalse(gameState.hasValidMoves(detectiveUser1.id()));
+    }
+
+    // lockStuckDetectives
+
+    @Test
+    void testLockStuckDetectives_noopDuringMrXPhase() {
+        setupBasicMrxLobby();
+        gameState.initializePlayersFromLobby(mockLobby);
+        gameState.setPlayerPosition(detectiveUser1.id(), 77);
+
+        var detective = gameState.getPlayer(detectiveUser1.id());
+        for (int i = 0; i < 10; i++) detective.useTicket(at.aau.serg.websocketdemoserver.gamelogic.player.TicketType.WALKING);
+        for (int i = 0; i < 8;  i++) detective.useTicket(at.aau.serg.websocketdemoserver.gamelogic.player.TicketType.ESCOOTER);
+        for (int i = 0; i < 4;  i++) detective.useTicket(at.aau.serg.websocketdemoserver.gamelogic.player.TicketType.CARSHARING);
+
+        // phase is MRX by default — lockStuckDetectives should do nothing
+        gameState.lockStuckDetectives();
+        assertFalse(gameState.getRoundController().allDetectivesLocked());
+    }
+
+    @Test
+    void testLockStuckDetectives_locksDetectiveWithNoMoves() {
+        setupBasicMrxLobby();
+        gameState.initializePlayersFromLobby(mockLobby);
+        gameState.setPlayerPosition(mrXUser.id(), 1);
+        gameState.setPlayerPosition(hostUser.id(), 77);
+        gameState.setPlayerPosition(detectiveUser1.id(), 77);
+
+        // drain detectiveUser1 tickets
+        var detective = gameState.getPlayer(detectiveUser1.id());
+        for (int i = 0; i < 10; i++) detective.useTicket(at.aau.serg.websocketdemoserver.gamelogic.player.TicketType.WALKING);
+        for (int i = 0; i < 8;  i++) detective.useTicket(at.aau.serg.websocketdemoserver.gamelogic.player.TicketType.ESCOOTER);
+        for (int i = 0; i < 4;  i++) detective.useTicket(at.aau.serg.websocketdemoserver.gamelogic.player.TicketType.CARSHARING);
+
+        // switch to detective phase with detectiveUser1 pending
+        gameState.getRoundController().setCurrentPhase(at.aau.serg.websocketdemoserver.gamelogic.turn.TurnType.DETECTIVES);
+        gameState.getRoundController().addPendingDetectives(detectiveUser1.id());
+
+        gameState.lockStuckDetectives();
+
+        assertFalse(gameState.getRoundController().getPendingDetectives().contains(detectiveUser1.id()));
+    }
+
+    @Test
+    void testLockStuckDetectives_doesNotLockDetectiveWithMoves() {
+        setupBasicMrxLobby();
+        gameState.initializePlayersFromLobby(mockLobby);
+        gameState.setPlayerPosition(detectiveUser1.id(), 77);
+
+        gameState.getRoundController().setCurrentPhase(at.aau.serg.websocketdemoserver.gamelogic.turn.TurnType.DETECTIVES);
+        gameState.getRoundController().addPendingDetectives(detectiveUser1.id());
+
+        gameState.lockStuckDetectives();
+
+        // still has tickets → not locked
+        assertFalse(gameState.getRoundController().allDetectivesLocked());
+        assertTrue(gameState.getRoundController().getPendingDetectives().contains(detectiveUser1.id()));
+    }
+
+    // checkGameResult with allDetectivesLocked
+
+    @Test
+    void testCheckGameResult_allDetectivesLocked_mrxWins() {
+        setupBasicMrxLobby();
+        gameState.initializePlayersFromLobby(mockLobby);
+        gameState.setPlayerPosition(mrXUser.id(), 1);
+        gameState.setPlayerPosition(hostUser.id(), 77);
+        gameState.setPlayerPosition(detectiveUser1.id(), 77);
+
+        // lock all detectives manually
+        gameState.getRoundController().lockDetective(hostUser.id());
+        gameState.getRoundController().lockDetective(detectiveUser1.id());
+
+        assertEquals(GameResult.MRX_WINS, gameState.checkGameResult());
+    }
+
+    // movePlayer blocked when not all positions set
+
+    @Test
+    void testMovePlayer_blockedWhenNotAllPlayersHavePositions() {
+        setupBasicMrxLobby();
+        gameState.initializePlayersFromLobby(mockLobby);
+
+        // only MrX has a position, detectives don't
+        gameState.setPlayerPosition(mrXUser.id(), 13);
+
+        boolean result = gameState.movePlayer(mrXUser.id(), TicketType.WALKING, 14);
+        assertFalse(result);
+    }
 }

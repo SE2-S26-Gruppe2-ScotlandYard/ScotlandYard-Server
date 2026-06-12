@@ -36,6 +36,7 @@ public class RoundController {
 
     private final Set<String> pendingDetectives = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
+    @Getter
     private final Set<String> allDetectiveIds = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     private final Set<String> lockedDetectives = Collections.newSetFromMap(new ConcurrentHashMap<>());

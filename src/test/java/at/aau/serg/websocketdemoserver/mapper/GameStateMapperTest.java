@@ -35,6 +35,7 @@ class GameStateMapperTest {
         when(mockGameState.getMrXSpecialTickets()).thenReturn(Map.of("BLACK", 4, "DOUBLE", 2));
         when(mockGameState.getMrXMoveHistory()).thenReturn(List.of("WALKING", "ESCOOTER"));
         when(mockGameState.getMrXRevealedPositions()).thenReturn(Map.of(3, 99));
+        when(mockGameState.allPlayersHaveStartPosition()).thenReturn(true);
     }
 
     @Test
@@ -147,6 +148,19 @@ class GameStateMapperTest {
         verify(mockGameState).getMrXSpecialTickets();
         verify(mockGameState).getMrXMoveHistory();
         verify(mockGameState).getMrXRevealedPositions();
+        verify(mockGameState).allPlayersHaveStartPosition();
+    }
+
+    @Test
+    void testToDto_allPlayersReady_true() {
+        when(mockGameState.allPlayersHaveStartPosition()).thenReturn(true);
+        assertTrue(GameStateMapper.toDto(mockGameState).isAllPlayersReady());
+    }
+
+    @Test
+    void testToDto_allPlayersReady_false() {
+        when(mockGameState.allPlayersHaveStartPosition()).thenReturn(false);
+        assertFalse(GameStateMapper.toDto(mockGameState).isAllPlayersReady());
     }
 
 }

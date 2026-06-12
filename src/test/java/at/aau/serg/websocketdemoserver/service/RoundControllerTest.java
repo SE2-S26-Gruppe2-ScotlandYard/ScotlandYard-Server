@@ -408,4 +408,68 @@ class RoundControllerTest {
         assertTrue(roundController.isDetectiveTurn());
         assertFalse(roundController.isMrXTurn());
     }
+
+    // lockDetective / allDetectivesLocked
+
+    @Test
+    void testLockDetective_removesFromActiveAndPending() {
+        roundController.initDetectives(Set.of("d1", "d2"));
+        roundController.recordMrXMove(); // puts both in pending
+        roundController.lockDetective("d1");
+
+        assertFalse(roundController.getPendingDetectives().contains("d1"));
+        assertFalse(roundController.getAllDetectiveIds().contains("d1"));
+    }
+
+    @Test
+    void testLockDetective_doesNotAffectOtherDetective() {
+        roundController.initDetectives(Set.of("d1", "d2"));
+        roundController.recordMrXMove();
+        roundController.lockDetective("d1");
+
+        assertTrue(roundController.getPendingDetectives().contains("d2"));
+        assertTrue(roundController.getAllDetectiveIds().contains("d2"));
+    }
+
+    @Test
+    void testAllDetectivesLocked_falseWhenNoneRegistered() {
+        assertFalse(roundController.allDetectivesLocked());
+    }
+
+    @Test
+    void testAllDetectivesLocked_falseWhenSomeStillActive() {
+        roundController.initDetectives(Set.of("d1", "d2"));
+        roundController.lockDetective("d1");
+
+        assertFalse(roundController.allDetectivesLocked());
+    }
+
+    @Test
+    void testAllDetectivesLocked_trueWhenAllLocked() {
+        roundController.initDetectives(Set.of("d1", "d2"));
+        roundController.lockDetective("d1");
+        roundController.lockDetective("d2");
+
+        assertTrue(roundController.allDetectivesLocked());
+    }
+
+    @Test
+    void testInitDetectives_clearsLockedSet() {
+        roundController.initDetectives(Set.of("d1"));
+        roundController.lockDetective("d1");
+        assertTrue(roundController.allDetectivesLocked());
+
+        roundController.initDetectives(Set.of("d1"));
+        assertFalse(roundController.allDetectivesLocked());
+    }
+
+    @Test
+    void testLockedDetective_notAddedToPendingOnNextMrXMove() {
+        roundController.initDetectives(Set.of("d1", "d2"));
+        roundController.lockDetective("d1");
+        roundController.recordMrXMove();
+
+        assertFalse(roundController.getPendingDetectives().contains("d1"));
+        assertTrue(roundController.getPendingDetectives().contains("d2"));
+    }
 }
