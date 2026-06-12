@@ -475,6 +475,8 @@ public class WebSocketBrokerController {
 
             log.debug("Move executed successfully, new position={}", gameState.getPlayerPosition(movement.getPlayerId()));
 
+            gameState.lockStuckDetectives();
+
             switch (gameState.checkGameResult()) {
                 case DETECTIVES_WIN -> {
                     broadcastGameState(gameId, gameState);
