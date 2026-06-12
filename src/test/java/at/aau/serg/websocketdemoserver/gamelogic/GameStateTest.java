@@ -341,6 +341,7 @@ class GameStateTest {
 
         // set to a known position with connections
         gameState.setPlayerPosition(hostUser.id(), 2);
+        gameState.setPlayerPosition(detectiveUser1.id(), 100);
 
         // get ticket count before move
         int ticketCountBefore = gameState.getPlayer(hostUser.id()).getTickets().get(TicketType.WALKING);
@@ -481,6 +482,7 @@ class GameStateTest {
         gameState.initializePlayersFromLobby(mockLobby);
 
         gameState.setPlayerPosition(hostUser.id(), 77);
+        gameState.setPlayerPosition(detectiveUser1.id(), 100);
 
         // set TurnType to DETECTIVES
         gameState.getRoundController().setCurrentPhase(TurnType.DETECTIVES);

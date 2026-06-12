@@ -112,6 +112,8 @@ class WebSocketBrokerIntegrationTest {
 
         GameState gameState = gameController.getGame(gameId);
         gameState.setPlayerPosition(playerId, 1);
+        gameState.setPlayerPosition("user2", 50);
+        gameState.setPlayerPosition("user3", 100);
         gameState.getRoundController().setCurrentPhase(TurnType.DETECTIVES);
         gameState.getRoundController().addPendingDetectives(playerId);
 
@@ -191,6 +193,7 @@ class WebSocketBrokerIntegrationTest {
         GameState gameState = gameController.getGame(gameId);
         // Beide Detektive auf Startposition 1 setzen, Ziel 8 ist von 1 aus gültig.
         gameState.setPlayerPosition(playerId, 1);
+        gameState.setPlayerPosition("user2", 50);
         gameState.setPlayerPosition("user3", 1);
         gameState.getRoundController().setCurrentPhase(TurnType.DETECTIVES);
         gameState.getRoundController().addPendingDetectives(playerId);
@@ -374,6 +377,8 @@ class WebSocketBrokerIntegrationTest {
 
         GameState gameState = gameController.getGame(gameId);
         gameState.setPlayerPosition("user2", 2);
+        gameState.setPlayerPosition(playerId, 1);
+        gameState.setPlayerPosition("user3", 50);
 
         session.send("/app/game/" + gameId + "/move",
                 createMovementMessage(gameId, "user2", TicketType.DOUBLE, 20));
@@ -402,6 +407,7 @@ class WebSocketBrokerIntegrationTest {
         GameState gameState = gameController.getGame(gameId);
         gameState.setPlayerPosition("user2", 2);
         gameState.setPlayerPosition(playerId, 1);
+        gameState.setPlayerPosition("user3", 50);
         gameState.getRoundController().activateDoubleMove();
         gameState.movePlayer("user2", TicketType.WALKING, 20);
         gameState.movePlayer("user2", TicketType.WALKING, 2);
@@ -439,6 +445,7 @@ class WebSocketBrokerIntegrationTest {
         GameState gameState = gameController.getGame(gameId);
         gameState.setPlayerPosition("user2", 20);
         gameState.setPlayerPosition(playerId, 2);
+        gameState.setPlayerPosition("user3", 50);
         gameState.getRoundController().setCurrentPhase(TurnType.DETECTIVES);
         gameState.getRoundController().addPendingDetectives(playerId);
 
@@ -457,6 +464,7 @@ class WebSocketBrokerIntegrationTest {
         GameState gameState = gameController.getGame(gameId);
         gameState.setPlayerPosition("user2", 20);
         gameState.setPlayerPosition(playerId, 2);
+        gameState.setPlayerPosition("user3", 50);
         gameState.getRoundController().setCurrentPhase(TurnType.DETECTIVES);
         gameState.getRoundController().addPendingDetectives(playerId);
 
@@ -522,6 +530,7 @@ class WebSocketBrokerIntegrationTest {
         }
         gameState.setPlayerPosition("user2", 20);
         gameState.setPlayerPosition(playerId, 2);
+        gameState.setPlayerPosition("user3", 50);
         gameState.getRoundController().setCurrentPhase(TurnType.DETECTIVES);
         gameState.getRoundController().addPendingDetectives(playerId);
 
