@@ -22,7 +22,8 @@ class GameStateDtoTest {
                 Map.of("det1", Map.of("WALKING", 10)),
                 Map.of("BLACK", 5, "DOUBLE", 2),
                 List.of("WALKING", "ESCOOTER"),
-                Map.of(3, 42)
+                Map.of(3, 42),
+                true
         );
     }
 
@@ -84,7 +85,26 @@ class GameStateDtoTest {
     @Test
     void testNullMrXPosition() {
         GameStateDto dto = new GameStateDto("g1", 1, TurnType.MRX,
-                Map.of(), null, false, 1, Map.of(), Map.of(), List.of(), Map.of());
+                Map.of(), null, false, 1, Map.of(), Map.of(), List.of(), Map.of(), false);
         assertThat(dto.getMrXPosition()).isNull();
+    }
+
+    @Test
+    void testAllPlayersReady_trueAndFalse() {
+        GameStateDto ready = buildDto("g1", 1, TurnType.MRX);
+        assertThat(ready.isAllPlayersReady()).isTrue();
+
+        GameStateDto notReady = new GameStateDto("g1", 1, TurnType.MRX,
+                Map.of(), null, false, 1, Map.of(), Map.of(), List.of(), Map.of(), false);
+        assertThat(notReady.isAllPlayersReady()).isFalse();
+    }
+
+    @Test
+    void testSetAllPlayersReady() {
+        GameStateDto dto = buildDto("g1", 1, TurnType.MRX);
+        dto.setAllPlayersReady(false);
+        assertThat(dto.isAllPlayersReady()).isFalse();
+        dto.setAllPlayersReady(true);
+        assertThat(dto.isAllPlayersReady()).isTrue();
     }
 }
