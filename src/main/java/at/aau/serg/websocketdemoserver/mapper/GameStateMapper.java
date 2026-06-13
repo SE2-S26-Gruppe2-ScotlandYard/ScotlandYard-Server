@@ -19,7 +19,8 @@ public class GameStateMapper {
                 gameState.getPlayerTickets(),
                 gameState.getMrXSpecialTickets(),
                 gameState.getMrXMoveHistory(),
-                gameState.getMrXRevealedPositions()
+                gameState.getMrXRevealedPositions(),
+                gameState.allPlayersHaveStartPosition()
         );
     }
 }

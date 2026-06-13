@@ -327,6 +327,9 @@ public class GameState {
 
     public boolean movePlayer(String playerId, TicketType ticket, int newPosition) {
         try {
+            if (!allPlayersHaveStartPosition()) {   // block moves until everyone is on the board
+                return false;
+            }
             if (!players.containsKey(playerId)) {   // player has to exist to move
                 return false;
             }
@@ -373,11 +376,34 @@ public class GameState {
         return getDetectivePositions().containsValue(mrXPos);
     }
 
+    public boolean hasValidMoves(String detectiveId) {
+        Integer pos = playerPositions.get(detectiveId);
+        if (pos == null) return true;   // no position yet = not placed, not stuck
+        Player p = players.get(detectiveId);
+        if (p == null) return false;
+        return board.getStation(pos).getConnections().stream()
+                .anyMatch(c -> p.hasTicket(c.transport()));
+    }
+
+    // Locks all pending detectives with no valid moves. Call this after each move
+    // so that stuck detectives are never waited on again.
+    public void lockStuckDetectives() {
+        if (!roundController.isDetectiveTurn()) return;
+        for (String id : new HashSet<>(roundController.getPendingDetectives())) {
+            if (!hasValidMoves(id)) {
+                roundController.lockDetective(id);
+            }
+        }
+    }
+
     public GameResult checkGameResult() {
         if (isCaught()) {
             return GameResult.DETECTIVES_WIN;
         }
         if (getCurrentRound() > MAX_ROUNDS) {
+            return GameResult.MRX_WINS;
+        }
+        if (roundController.allDetectivesLocked()) {
             return GameResult.MRX_WINS;
         }
         return GameResult.ONGOING;

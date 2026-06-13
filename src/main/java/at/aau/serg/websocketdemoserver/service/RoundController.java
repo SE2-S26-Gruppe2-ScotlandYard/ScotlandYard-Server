@@ -36,11 +36,25 @@ public class RoundController {
 
     private final Set<String> pendingDetectives = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
+    @Getter
     private final Set<String> allDetectiveIds = Collections.newSetFromMap(new ConcurrentHashMap<>());
+
+    private final Set<String> lockedDetectives = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     public void initDetectives(Set<String> detectiveIds) {
         allDetectiveIds.clear();
         allDetectiveIds.addAll(detectiveIds);
+        lockedDetectives.clear();
+    }
+
+    public synchronized void lockDetective(String detectiveId) {
+        lockedDetectives.add(detectiveId);
+        allDetectiveIds.remove(detectiveId);
+        pendingDetectives.remove(detectiveId);
+    }
+
+    public boolean allDetectivesLocked() {
+        return !lockedDetectives.isEmpty() && allDetectiveIds.isEmpty();
     }
 
     public synchronized void activateDoubleMove() {

@@ -23,4 +23,5 @@ public class GameStateDto {
     private Map<String, Integer> mrXSpecialTickets;             // only BLACK and DOUBLE
     private List<String> mrXMoveHistory;
     private Map<Integer, Integer> mrXRevealedPositions;
+    private boolean allPlayersReady;
 }
