@@ -59,7 +59,7 @@ public class LobbyService {
                 .anyMatch(existingUser -> existingUser.id().equals(user.id()));
 
         if (alreadyInLobby) {
-            throw new IllegalStateException("User already in lobby");
+            return lobby; // Reconnect: user is already in lobby, just return it
         }
 
         lobby.addUser(user);
