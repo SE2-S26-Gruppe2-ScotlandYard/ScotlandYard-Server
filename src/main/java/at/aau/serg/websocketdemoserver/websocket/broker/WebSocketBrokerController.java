@@ -30,6 +30,7 @@ import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.messaging.simp.annotation.SendToUser;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
+import at.aau.serg.websocketdemoserver.dtos.game.KickPlayerInGameMessage;
 
 @Controller
 public class WebSocketBrokerController {
@@ -553,6 +554,33 @@ public class WebSocketBrokerController {
 
         } catch (Exception e) {
             sendToUser(movement.getPlayerId(), new MovementResponse(false, "Error: " + e.getMessage(), 0, null));
+        }
+    }
+
+    @MessageMapping("/game/kickPlayer")
+    public void handleKickPlayerInGame(KickPlayerInGameMessage message) {
+        try {
+            GameState gameState = gameController.getGame(message.getGameId());
+            if (gameState == null) {
+                sendToUser(message.getRequesterId(), new MovementResponse(false, "Game not found", 0, null));
+                return;
+            }
+            String result = gameState.kickPlayer(message.getRequesterId(), message.getTargetId());
+            broadcastGameState(message.getGameId(), gameState);
+
+            switch (result) {
+                case "MRX_KICKED" -> {
+                    broadcastGameOver(message.getGameId(), "DETECTIVES_WIN");
+                    gameController.removeGame(message.getGameId());
+                }
+                case "TOO_FEW_PLAYERS" -> {
+                    broadcastGameOver(message.getGameId(), "DETECTIVES_WIN");
+                    gameController.removeGame(message.getGameId());
+                }
+                default -> { /* continue game */ }
+            }
+        } catch (Exception e) {
+            sendToUser(message.getRequesterId(), new MovementResponse(false, e.getMessage(), 0, null));
         }
     }
 }

@@ -11,6 +11,7 @@ public class GameStateMapper {
         return new GameStateDto(
                 gameState.getGameId(),
                 gameState.getCurrentRound(),
+                gameState.getHostId(),
                 gameState.getCurrentPhase(),
                 gameState.getDetectivePositions(),
                 gameState.getMrXPosition(),
@@ -20,7 +21,8 @@ public class GameStateMapper {
                 gameState.getMrXSpecialTickets(),
                 gameState.getMrXMoveHistory(),
                 gameState.getMrXRevealedPositions(),
-                gameState.allPlayersHaveStartPosition()
+                gameState.allPlayersHaveStartPosition(),
+                gameState.getPlayerNames()
         );
     }
 }
