@@ -1,6 +1,16 @@
 services:
   server:
+    container_name: scotland-yard
     image: ghcr.io/se2-s26-gruppe2-scotlandyard/scotlandyard-server:latest
+    pull_policy: always
     restart: unless-stopped
     ports:
       - "53206:8080"
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1g
+        reservations:
+          cpus: "0.5"
+          memory: 512m
