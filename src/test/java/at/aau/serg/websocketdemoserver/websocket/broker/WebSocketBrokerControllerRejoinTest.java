@@ -21,23 +21,6 @@ class WebSocketBrokerControllerRejoinTest {
         controller = new WebSocketBrokerController(messagingTemplate);
     }
 
-    private UserConnectResponse registerUser(String nickname) {
-        UserConnectMessage uc = new UserConnectMessage();
-        uc.setNickName(nickname);
-        return controller.handleUserConnect(uc);
-    }
-
-    private String createLobbyAndReturnId(String hostId, String hostNickname) {
-        CreateLobbyMessage create = new CreateLobbyMessage();
-        create.setLobbyName("TestLobby");
-        create.setUserId(hostId);
-        create.setNickName(hostNickname);
-        controller.handleCreateLobby(create);
-        // The controller broadcasts the lobby - we cannot easily get the ID here
-        // Use a workaround by looking at the controller's internal state via service
-        return null; // We'll test by rejoin with userId tracking
-    }
-
     @Test
     void testHandleRejoinLobbyUnknownLobby() {
         RejoinLobbyMessage msg = new RejoinLobbyMessage();
@@ -64,6 +47,14 @@ class WebSocketBrokerControllerRejoinTest {
     }
 
     @Test
+    void testHandleRejoinGameWithBlankGameId() {
+        RejoinGameMessage msg = new RejoinGameMessage();
+        msg.setGameId("");
+        msg.setUserId("user1");
+        assertDoesNotThrow(() -> controller.handleRejoinGame(msg));
+    }
+
+    @Test
     void testHandleKickPlayerInGameUnknownGame() {
         KickPlayerInGameMessage msg = new KickPlayerInGameMessage();
         msg.setGameId("UNKNOWN");
@@ -73,42 +64,76 @@ class WebSocketBrokerControllerRejoinTest {
     }
 
     @Test
-    void testRejoinLobbyAfterRegisterAndCreate() {
-        UserConnectResponse host = registerUser("HostUser");
-        CreateLobbyMessage create = new CreateLobbyMessage();
-        create.setLobbyName("TestLobby");
-        create.setUserId(host.getUser().id());
-        create.setNickName("HostUser");
-        controller.handleCreateLobby(create);
-
-        RejoinLobbyMessage rejoin = new RejoinLobbyMessage();
-        rejoin.setLobbyId("anything");
-        rejoin.setUserId(host.getUser().id());
-        rejoin.setNickName("HostUser");
-        assertDoesNotThrow(() -> controller.handleRejoinLobby(rejoin));
-    }
-
-    @Test
-    void testKickPlayerNoSession() {
+    void testHandleKickPlayerInGameWithNullGameId() {
         KickPlayerInGameMessage msg = new KickPlayerInGameMessage();
-        msg.setGameId("");
+        msg.setGameId(null);
         msg.setRequesterId("host1");
         msg.setTargetId("target1");
         assertDoesNotThrow(() -> controller.handleKickPlayerInGame(msg));
     }
 
     @Test
-    void testMultipleRejoinAttemptsForSameUser() {
-        UserConnectResponse user = registerUser("Stefan");
-        RejoinLobbyMessage rejoin = new RejoinLobbyMessage();
-        rejoin.setLobbyId("unknown");
-        rejoin.setUserId(user.getUser().id());
-        rejoin.setNickName("Stefan");
+    void testRejoinLobbyAfterRegisterAndCreate() {
+        UserConnectMessage uc = new UserConnectMessage();
+        uc.setNickName("hostxyz");
+        UserConnectResponse host = controller.handleUserConnect(uc);
+        assertNotNull(host.getUser(), "user registration should succeed");
 
-        assertDoesNotThrow(() -> {
-            controller.handleRejoinLobby(rejoin);
-            controller.handleRejoinLobby(rejoin);
-            controller.handleRejoinLobby(rejoin);
-        });
+        CreateLobbyMessage create = new CreateLobbyMessage();
+        create.setLobbyName("TestLobby");
+        create.setUserId(host.getUser().id());
+        create.setNickName("hostxyz");
+        controller.handleCreateLobby(create);
+
+        RejoinLobbyMessage rejoin = new RejoinLobbyMessage();
+        rejoin.setLobbyId("anything");
+        rejoin.setUserId(host.getUser().id());
+        rejoin.setNickName("hostxyz");
+        assertDoesNotThrow(() -> controller.handleRejoinLobby(rejoin));
+    }
+
+    @Test
+    void testRejoinGameAfterCreateLobby() {
+        UserConnectMessage uc = new UserConnectMessage();
+        uc.setNickName("hostzzz");
+        UserConnectResponse host = controller.handleUserConnect(uc);
+        assertNotNull(host.getUser());
+
+        CreateLobbyMessage create = new CreateLobbyMessage();
+        create.setLobbyName("TestLobby2");
+        create.setUserId(host.getUser().id());
+        create.setNickName("hostzzz");
+        controller.handleCreateLobby(create);
+
+        RejoinGameMessage msg = new RejoinGameMessage();
+        msg.setGameId(null);
+        msg.setUserId(host.getUser().id());
+        assertDoesNotThrow(() -> controller.handleRejoinGame(msg));
+    }
+
+    @Test
+    void testKickPlayerWithEmptyIds() {
+        KickPlayerInGameMessage msg = new KickPlayerInGameMessage();
+        msg.setGameId("");
+        msg.setRequesterId("");
+        msg.setTargetId("");
+        assertDoesNotThrow(() -> controller.handleKickPlayerInGame(msg));
+    }
+
+    @Test
+    void testRejoinGameForUnknownUser() {
+        RejoinGameMessage msg = new RejoinGameMessage();
+        msg.setGameId(null);
+        msg.setUserId("completelyUnknownUserABC");
+        assertDoesNotThrow(() -> controller.handleRejoinGame(msg));
+    }
+
+    @Test
+    void testRejoinLobbyWithEmptyMessage() {
+        RejoinLobbyMessage msg = new RejoinLobbyMessage();
+        msg.setLobbyId("");
+        msg.setUserId("");
+        msg.setNickName("");
+        assertDoesNotThrow(() -> controller.handleRejoinLobby(msg));
     }
 }
