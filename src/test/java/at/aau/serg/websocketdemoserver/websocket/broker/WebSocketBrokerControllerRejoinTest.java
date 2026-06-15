@@ -76,7 +76,7 @@ class WebSocketBrokerControllerRejoinTest {
     void testRejoinLobbyAfterRegisterAndCreate() {
         UserConnectMessage uc = new UserConnectMessage();
         uc.setNickName("hostxyz");
-        UserConnectResponse host = controller.handleUserConnect(uc);
+        UserConnectResponse host = controller.handleUserConnect(uc, null);
         assertNotNull(host.getUser(), "user registration should succeed");
 
         CreateLobbyMessage create = new CreateLobbyMessage();
@@ -96,7 +96,7 @@ class WebSocketBrokerControllerRejoinTest {
     void testRejoinGameAfterCreateLobby() {
         UserConnectMessage uc = new UserConnectMessage();
         uc.setNickName("hostzzz");
-        UserConnectResponse host = controller.handleUserConnect(uc);
+        UserConnectResponse host = controller.handleUserConnect(uc, null);
         assertNotNull(host.getUser());
 
         CreateLobbyMessage create = new CreateLobbyMessage();

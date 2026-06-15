@@ -155,14 +155,17 @@ public class WebSocketBrokerController {
 
     @MessageMapping("/user/connect")
     @SendToUser("/topic/user-response")
-    public UserConnectResponse handleUserConnect(UserConnectMessage message) {
-        return handleUserConnect(message, null);
-    }
-
     public UserConnectResponse handleUserConnect(UserConnectMessage message,
                                                  @Header(value = "simpSessionId", required = false) String sessionId) {
         try {
             User user = userService.registerUser(message.getNickName());
+            boolean isReconnect = message.getUserId() != null && message.getUserId().equals(user.id());
+            if (!isReconnect) {
+                String existingSession = sessionAuthService.getSessionForUser(user.id());
+                if (existingSession != null && !existingSession.equals(sessionId)) {
+                    return new UserConnectResponse(false, "Nickname already taken", null);
+                }
+            }
             sessionAuthService.bindSession(sessionId, user.id());
             return new UserConnectResponse(true, "User registered", user);
         } catch (IllegalArgumentException e) {
@@ -171,7 +174,6 @@ public class WebSocketBrokerController {
             return new UserConnectResponse(false, "Internal Server Error", null);
         }
     }
-
     // ── Lobby endpoints ───────────────────────────────────────────────────────
 
     @MessageMapping("/lobby/create")

@@ -44,7 +44,7 @@ class WebSocketBrokerControllerTest {
         WebSocketBrokerController noMsgController = new WebSocketBrokerController(messagingTemplate);
         UserConnectMessage message = new UserConnectMessage();
         message.setNickName("Stefan");
-        UserConnectResponse response = noMsgController.handleUserConnect(message);
+        UserConnectResponse response = noMsgController.handleUserConnect(message, null);
         assertTrue(response.isSuccess());
         assertEquals("User registered", response.getMessage());
         assertNotNull(response.getUser().id());
@@ -545,7 +545,7 @@ class WebSocketBrokerControllerTest {
     void testHandleUserConnect_emptyNickname_returnsError() {
         UserConnectMessage message = new UserConnectMessage();
         message.setNickName("");
-        UserConnectResponse response = controller.handleUserConnect(message);
+        UserConnectResponse response = controller.handleUserConnect(message, null);
         assertFalse(response.isSuccess());
         assertEquals("Nickname cannot be empty", response.getMessage());
         assertNull(response.getUser());
@@ -555,7 +555,7 @@ class WebSocketBrokerControllerTest {
     void testHandleUserConnect_nullNickname_returnsError() {
         UserConnectMessage message = new UserConnectMessage();
         message.setNickName(null);
-        UserConnectResponse response = controller.handleUserConnect(message);
+        UserConnectResponse response = controller.handleUserConnect(message, null);
         assertFalse(response.isSuccess());
         assertNull(response.getUser());
     }
@@ -564,11 +564,11 @@ class WebSocketBrokerControllerTest {
     void testHandleUserConnect_duplicateNickname_returnsExistingUser() {
         UserConnectMessage first = new UserConnectMessage();
         first.setNickName("dupetest");
-        controller.handleUserConnect(first);
+        controller.handleUserConnect(first, null);
 
         UserConnectMessage second = new UserConnectMessage();
         second.setNickName(first.getNickName());
-        UserConnectResponse response = controller.handleUserConnect(second);
+        UserConnectResponse response = controller.handleUserConnect(second, null);
         assertTrue(response.isSuccess());
         assertEquals("dupetest", response.getUser().nickName());
     }
