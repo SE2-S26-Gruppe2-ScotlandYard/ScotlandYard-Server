@@ -368,7 +368,7 @@ class LobbyDtosTests {
 
     @Test
     void testUserConnectMessageAllArgsConstructor() {
-        UserConnectMessage message = new UserConnectMessage("Stefan");
+        UserConnectMessage message = new UserConnectMessage("Stefan", null);
         assertThat(message.getNickName()).isEqualTo("Stefan");
     }
 

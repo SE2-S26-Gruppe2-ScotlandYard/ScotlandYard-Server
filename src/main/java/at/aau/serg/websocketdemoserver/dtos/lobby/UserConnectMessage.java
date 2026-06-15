@@ -9,4 +9,5 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class UserConnectMessage {
     private String nickName;
+    private String userId;
 }

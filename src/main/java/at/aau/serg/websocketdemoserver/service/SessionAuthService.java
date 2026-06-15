@@ -15,7 +15,7 @@ public class SessionAuthService {
     public void bindSession(String sessionId, String userId) {
         if (sessionId != null && userId != null) {
             sessionToUser.put(sessionId, userId);
-            disconnectedUsers.remove(userId); // User is back
+            disconnectedUsers.remove(userId);
         }
     }
 
@@ -25,9 +25,18 @@ public class SessionAuthService {
     }
 
     /**
-     * Called when STOMP session disconnects. Returns the userId that was bound
-     * to that session, or null if none. Marks the user as disconnected.
+     * Returns the sessionId currently bound to this userId, or null if none.
      */
+    public String getSessionForUser(String userId) {
+        if (userId == null) return null;
+        for (Map.Entry<String, String> entry : sessionToUser.entrySet()) {
+            if (userId.equals(entry.getValue())) {
+                return entry.getKey();
+            }
+        }
+        return null;
+    }
+
     public String unbindSession(String sessionId) {
         if (sessionId == null) return null;
         String userId = sessionToUser.remove(sessionId);

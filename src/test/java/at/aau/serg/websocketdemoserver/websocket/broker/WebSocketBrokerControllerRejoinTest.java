@@ -76,7 +76,7 @@ class WebSocketBrokerControllerRejoinTest {
     void testRejoinLobbyAfterRegisterAndCreate() {
         UserConnectMessage uc = new UserConnectMessage();
         uc.setNickName("hostxyz");
-        UserConnectResponse host = controller.handleUserConnect(uc);
+        UserConnectResponse host = controller.handleUserConnect(uc, null);
         assertNotNull(host.getUser(), "user registration should succeed");
 
         CreateLobbyMessage create = new CreateLobbyMessage();
@@ -96,7 +96,7 @@ class WebSocketBrokerControllerRejoinTest {
     void testRejoinGameAfterCreateLobby() {
         UserConnectMessage uc = new UserConnectMessage();
         uc.setNickName("hostzzz");
-        UserConnectResponse host = controller.handleUserConnect(uc);
+        UserConnectResponse host = controller.handleUserConnect(uc, null);
         assertNotNull(host.getUser());
 
         CreateLobbyMessage create = new CreateLobbyMessage();
@@ -135,5 +135,28 @@ class WebSocketBrokerControllerRejoinTest {
         msg.setUserId("");
         msg.setNickName("");
         assertDoesNotThrow(() -> controller.handleRejoinLobby(msg));
+    }
+    @Test
+    void testHandleUserConnect_duplicateNickname_withDifferentSession_returnsError() {
+        UserConnectMessage first = new UserConnectMessage("nick1", null);
+        controller.handleUserConnect(first, "session-A");
+
+        UserConnectMessage second = new UserConnectMessage("nick1", null);
+        UserConnectResponse response = controller.handleUserConnect(second, "session-B");
+        assertFalse(response.isSuccess());
+        assertEquals("Nickname already taken", response.getMessage());
+    }
+
+    @Test
+    void testHandleUserConnect_reconnect_withSameUserId_succeeds() {
+        UserConnectMessage first = new UserConnectMessage("nick2", null);
+        UserConnectResponse firstResponse = controller.handleUserConnect(first, "session-A");
+        assertTrue(firstResponse.isSuccess());
+        String userId = firstResponse.getUser().id();
+
+        // Simulate reconnect: same nickname + same userId
+        UserConnectMessage reconnect = new UserConnectMessage("nick2", userId);
+        UserConnectResponse response = controller.handleUserConnect(reconnect, "session-B");
+        assertTrue(response.isSuccess());
     }
 }

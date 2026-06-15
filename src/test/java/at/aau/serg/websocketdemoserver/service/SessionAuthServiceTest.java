@@ -108,4 +108,47 @@ class SessionAuthServiceTest {
         service.unbindSession("sess1");
         assertEquals(1, service.getSessionCount());
     }
+    @Test
+    void testGetSessionForUser() {
+        service.bindSession("sess1", "user1");
+        assertEquals("sess1", service.getSessionForUser("user1"));
+    }
+
+    @Test
+    void testGetSessionForUserNullUserId() {
+        assertNull(service.getSessionForUser(null));
+    }
+
+    @Test
+    void testGetSessionForUserUnknown() {
+        assertNull(service.getSessionForUser("unknown"));
+    }
+
+    @Test
+    void testUnbindSessionReturnsUserId() {
+        service.bindSession("sess1", "user1");
+        String userId = service.unbindSession("sess1");
+        assertEquals("user1", userId);
+    }
+
+    @Test
+    void testUnbindSessionMarksDisconnected() {
+        service.bindSession("sess1", "user1");
+        service.unbindSession("sess1");
+        assertTrue(service.isUserDisconnected("user1"));
+    }
+
+    @Test
+    void testUnbindSessionReturnsNullForUnknown() {
+        assertNull(service.unbindSession("unknown"));
+    }
+
+    @Test
+    void testBindSessionClearsDisconnected() {
+        service.bindSession("sess1", "user1");
+        service.unbindSession("sess1");
+        assertTrue(service.isUserDisconnected("user1"));
+        service.bindSession("sess2", "user1");
+        assertFalse(service.isUserDisconnected("user1"));
+    }
 }
