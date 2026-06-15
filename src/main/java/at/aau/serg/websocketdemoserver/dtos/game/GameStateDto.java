@@ -26,4 +26,5 @@ public class GameStateDto {
     private Map<Integer, Integer> mrXRevealedPositions;
     private boolean allPlayersReady;
     private Map<String, String> playerNames;
+    private java.util.Set<String> disconnectedPlayers;
 }

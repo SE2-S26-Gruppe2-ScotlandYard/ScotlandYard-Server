@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -25,7 +26,8 @@ class GameStateDtoTest {
                 List.of("WALKING", "ESCOOTER"),
                 Map.of(3, 42),
                 true,
-                Map.of()
+                Map.of(),
+                Set.of()
         );
     }
 
@@ -87,7 +89,7 @@ class GameStateDtoTest {
     @Test
     void testNullMrXPosition() {
         GameStateDto dto = new GameStateDto("g1", 1, "host1", TurnType.MRX,
-                Map.of(), null, false, 1, Map.of(), Map.of(), List.of(), Map.of(), false, Map.of());
+                Map.of(), null, false, 1, Map.of(), Map.of(), List.of(), Map.of(), false, Map.of(), Set.of());
         assertThat(dto.getMrXPosition()).isNull();
     }
 
@@ -97,7 +99,7 @@ class GameStateDtoTest {
         assertThat(ready.isAllPlayersReady()).isTrue();
 
         GameStateDto notReady = new GameStateDto("g1", 1, "host1", TurnType.MRX,
-                Map.of(), null, false, 1, Map.of(), Map.of(), List.of(), Map.of(), false, Map.of());
+                Map.of(), null, false, 1, Map.of(), Map.of(), List.of(), Map.of(), false, Map.of(), Set.of());
         assertThat(notReady.isAllPlayersReady()).isFalse();
     }
 

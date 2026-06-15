@@ -83,7 +83,7 @@ public class WebSocketBrokerController {
     }
 
     private void broadcastGameState(String gameId, GameState gameState) {
-        GameStateDto dto = GameStateMapper.toDto(gameState);
+        GameStateDto dto = GameStateMapper.toDto(gameState, sessionAuthService.getDisconnectedUsers());
         messagingTemplate.convertAndSend("/topic/game/" + gameId + "/movements", dto);
     }
 
