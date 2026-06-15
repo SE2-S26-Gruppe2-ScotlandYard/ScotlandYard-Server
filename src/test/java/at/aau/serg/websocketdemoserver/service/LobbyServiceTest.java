@@ -59,12 +59,13 @@ public class LobbyServiceTest {
     }
 
     @Test
-    void testJoinLobbyFailsIfUserAlreadyInLobby() {
+    void testJoinLobbyReturnsExistingOnReconnect() {
         LobbyService service = new LobbyService();
         User host = new User("1", "Host");
         Lobby lobby = service.createLobby("TestLobby", host);
 
-        assertThrows(IllegalStateException.class, () -> service.joinLobby(lobby.getId(), host));
+        Lobby result = service.joinLobby(lobby.getId(), host);
+        assertEquals(lobby.getId(), result.getId());
     }
 
     @Test

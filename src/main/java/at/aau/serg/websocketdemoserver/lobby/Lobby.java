@@ -58,6 +58,20 @@ public class Lobby {
         selectedRoles.put(user.id(), Role.NONE);
     }
 
+    /**
+     * Allows a player to rejoin after disconnect.
+     * Skips the isStarted/isLocked check since the player was already in the game.
+     */
+    public void rejoinUser(User user) {
+        if (isFull() && !users.containsKey(user.id())) {
+            throw new IllegalStateException("Lobby is full");
+        }
+        users.put(user.id(), user);
+        // Restore ready status and role if not already present
+        readyStatus.putIfAbsent(user.id(), false);
+        selectedRoles.putIfAbsent(user.id(), Role.NONE);
+    }
+
     public void removeUser(String userId) {
         users.remove(userId);
         readyStatus.remove(userId);

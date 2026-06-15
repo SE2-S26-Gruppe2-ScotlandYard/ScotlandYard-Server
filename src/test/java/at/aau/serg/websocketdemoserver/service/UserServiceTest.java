@@ -40,11 +40,11 @@ public class UserServiceTest {
     }
 
     @Test
-    void testRegisterUserThrowsExceptionIfNameTakenCaseInsensitive() {
+    void testRegisterUserReturnsExistingUserOnReconnect() {
         userService.registerUser("Stefan");
 
-        assertThrows(IllegalArgumentException.class, () -> userService.registerUser("stefan"));
-        assertThrows(IllegalArgumentException.class, () -> userService.registerUser("STEFAN"));
+        assertNotNull(userService.registerUser("stefan"));
+        assertNotNull(userService.registerUser("STEFAN"));
     }
 
     @Test

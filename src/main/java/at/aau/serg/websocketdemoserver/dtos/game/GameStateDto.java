@@ -14,6 +14,7 @@ import java.util.Map;
 public class GameStateDto {
     private String gameId;
     private int currentRound;
+    private String hostId;
     private TurnType currentPhase;
     private Map<String, Integer> detectivePositions;
     private Integer mrXPosition;
@@ -24,4 +25,6 @@ public class GameStateDto {
     private List<String> mrXMoveHistory;
     private Map<Integer, Integer> mrXRevealedPositions;
     private boolean allPlayersReady;
+    private Map<String, String> playerNames;
+    private java.util.Set<String> disconnectedPlayers;
 }

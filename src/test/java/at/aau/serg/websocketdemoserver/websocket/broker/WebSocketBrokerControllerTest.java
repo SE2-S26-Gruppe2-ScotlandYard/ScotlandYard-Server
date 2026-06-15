@@ -561,7 +561,7 @@ class WebSocketBrokerControllerTest {
     }
 
     @Test
-    void testHandleUserConnect_duplicateNickname_returnsError() {
+    void testHandleUserConnect_duplicateNickname_returnsExistingUser() {
         UserConnectMessage first = new UserConnectMessage();
         first.setNickName("dupetest");
         controller.handleUserConnect(first);
@@ -569,8 +569,8 @@ class WebSocketBrokerControllerTest {
         UserConnectMessage second = new UserConnectMessage();
         second.setNickName(first.getNickName());
         UserConnectResponse response = controller.handleUserConnect(second);
-        assertFalse(response.isSuccess());
-        assertEquals("Nickname already taken", response.getMessage());
+        assertTrue(response.isSuccess());
+        assertEquals("dupetest", response.getUser().nickName());
     }
 
     @Test

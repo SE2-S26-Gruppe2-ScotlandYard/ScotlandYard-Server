@@ -1,6 +1,7 @@
 package at.aau.serg.websocketdemoserver.websocket.broker;
 
 import at.aau.serg.websocketdemoserver.dtos.game.GameStateDto;
+import at.aau.serg.websocketdemoserver.dtos.game.RejoinGameMessage;
 import at.aau.serg.websocketdemoserver.dtos.game.StartPositionConfirmRequest;
 import at.aau.serg.websocketdemoserver.dtos.game.StartPositionRequest;
 import at.aau.serg.websocketdemoserver.dtos.game.StartPositionResponse;
@@ -15,58 +16,64 @@ import at.aau.serg.websocketdemoserver.gamelogic.turn.TurnType;
 import at.aau.serg.websocketdemoserver.lobby.Lobby;
 import at.aau.serg.websocketdemoserver.lobby.User;
 import at.aau.serg.websocketdemoserver.mapper.GameStateMapper;
-import at.aau.serg.websocketdemoserver.service.GameController;
-import at.aau.serg.websocketdemoserver.service.LobbyService;
-import at.aau.serg.websocketdemoserver.service.UserService;
+import at.aau.serg.websocketdemoserver.service.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
+import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.messaging.simp.annotation.SendToUser;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Controller;
+import at.aau.serg.websocketdemoserver.dtos.game.KickPlayerInGameMessage;
 
 @Controller
 public class WebSocketBrokerController {
 
     private static final Logger log = LoggerFactory.getLogger(WebSocketBrokerController.class);
     private static final String TOPIC_GAME = "/topic/game/";
+    private static final String ERROR_TYPE = "ERROR";
+    private static final String UNAUTHORIZED_MSG = "Unauthorized: You can only act on your own behalf";
 
     private final GameController gameController;
     private final LobbyService lobbyService;
     private final SimpMessagingTemplate messagingTemplate;
     private final UserService userService;
+    private final PlayerSessionService playerSessionService;
+    private final SessionAuthService sessionAuthService;
 
-    // constructor for tests
     public WebSocketBrokerController(SimpMessagingTemplate messagingTemplate) {
-        this(messagingTemplate, GameController.getInstance(), new LobbyService(), new UserService());
+        this(messagingTemplate, GameController.getInstance(), new LobbyService(), new UserService(), new PlayerSessionService(), new SessionAuthService());
     }
 
     @Autowired
     public WebSocketBrokerController(SimpMessagingTemplate messagingTemplate,
                                      GameController gameController,
                                      LobbyService lobbyService,
-                                     UserService userService) {
+                                     UserService userService,
+                                     PlayerSessionService playerSessionService,
+                                     SessionAuthService sessionAuthService) {
         this.messagingTemplate = messagingTemplate;
         this.gameController = gameController;
         this.lobbyService = lobbyService;
         this.userService = userService;
+        this.playerSessionService = playerSessionService;
+        this.sessionAuthService = sessionAuthService;
     }
 
-    // 1. Private Antworten an den Auslöser über das dedizierte Player-Topic
+    // ── Messaging helpers ─────────────────────────────────────────────────────
+
     private void sendToUser(String userId, Object payload) {
         messagingTemplate.convertAndSend("/topic/player/" + userId, payload);
     }
 
-    // 2. Globale Antworten (NUR für den Server-Browser: Erstellen & Löschen)
     private void broadcastToGlobalLobbyList(LobbyResponse response) {
         messagingTemplate.convertAndSend("/topic/lobby", response);
     }
 
-    // 3. Isolierte Antworten (NUR für die Spieler, die physisch IN dieser Lobby sind)
     private void broadcastToSpecificLobby(String lobbyId, LobbyResponse response) {
         messagingTemplate.convertAndSend("/topic/lobby/" + lobbyId, response);
     }
@@ -76,7 +83,7 @@ public class WebSocketBrokerController {
     }
 
     private void broadcastGameState(String gameId, GameState gameState) {
-        GameStateDto dto = GameStateMapper.toDto(gameState);
+        GameStateDto dto = GameStateMapper.toDto(gameState, sessionAuthService.getDisconnectedUsers());
         messagingTemplate.convertAndSend("/topic/game/" + gameId + "/movements", dto);
     }
 
@@ -84,15 +91,40 @@ public class WebSocketBrokerController {
         messagingTemplate.convertAndSend("/topic/game/" + gameId + "/over", result);
     }
 
+    /**
+     * Returns true and sends a lobby error response if session is not authorized for the claimed userId.
+     * Returns false if session is authorized (caller should proceed).
+     */
+    private boolean denyIfUnauthorized(String sessionId, String claimedUserId, String lobbyIdForResponse) {
+        if (!sessionAuthService.isAuthorized(sessionId, claimedUserId)) {
+            log.warn("Unauthorized call: session={} tried to act as user={}", sessionId, claimedUserId);
+            sendToUser(claimedUserId, new LobbyResponse(false, UNAUTHORIZED_MSG, lobbyIdForResponse, null));
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Same as denyIfUnauthorized but sends a movement response (for game-related endpoints).
+     */
+    private boolean denyIfUnauthorizedGame(String sessionId, String claimedUserId) {
+        if (!sessionAuthService.isAuthorized(sessionId, claimedUserId)) {
+            log.warn("Unauthorized game call: session={} tried to act as user={}", sessionId, claimedUserId);
+            sendToUser(claimedUserId, new MovementResponse(false, UNAUTHORIZED_MSG, 0, null));
+            return true;
+        }
+        return false;
+    }
+
     private boolean validateStartPositionIds(String gameId, String playerId) {
         if (gameId == null || gameId.isBlank()) {
             messagingTemplate.convertAndSend("/topic/game/error",
-                    new StartPositionResponse("ERROR", null, null, null, "gameId must not be blank"));
+                    new StartPositionResponse(ERROR_TYPE, null, null, null, "gameId must not be blank"));
             return false;
         }
         if (playerId == null || playerId.isBlank()) {
             messagingTemplate.convertAndSend(TOPIC_GAME + gameId + "/player/unknown/start-position",
-                    new StartPositionResponse("ERROR", gameId, "unknown", null, "playerId must not be blank"));
+                    new StartPositionResponse(ERROR_TYPE, gameId, "unknown", null, "playerId must not be blank"));
             return false;
         }
         return true;
@@ -102,10 +134,12 @@ public class WebSocketBrokerController {
         GameState gameState = gameController.getGame(gameId);
         if (gameState == null) {
             messagingTemplate.convertAndSend(playerTopic,
-                    new StartPositionResponse("ERROR", gameId, playerId, null, "Game not found"));
+                    new StartPositionResponse(ERROR_TYPE, gameId, playerId, null, "Game not found"));
         }
         return gameState;
     }
+
+    // ── Basic endpoints ───────────────────────────────────────────────────────
 
     @MessageMapping("/hello")
     @SendTo("/topic/hello-response")
@@ -122,26 +156,37 @@ public class WebSocketBrokerController {
     @MessageMapping("/user/connect")
     @SendToUser("/topic/user-response")
     public UserConnectResponse handleUserConnect(UserConnectMessage message) {
+        return handleUserConnect(message, null);
+    }
+
+    public UserConnectResponse handleUserConnect(UserConnectMessage message,
+                                                 @Header(value = "simpSessionId", required = false) String sessionId) {
         try {
             User user = userService.registerUser(message.getNickName());
-            UserConnectResponse response = new UserConnectResponse(true, "User registered", user);
-            return response;
+            sessionAuthService.bindSession(sessionId, user.id());
+            return new UserConnectResponse(true, "User registered", user);
         } catch (IllegalArgumentException e) {
-            UserConnectResponse response = new UserConnectResponse(false, e.getMessage(), null);
-            return response;
+            return new UserConnectResponse(false, e.getMessage(), null);
         } catch (Exception e) {
-            UserConnectResponse response = new UserConnectResponse(false, "Internal Server Error", null);
-            return response;
+            return new UserConnectResponse(false, "Internal Server Error", null);
         }
     }
 
+    // ── Lobby endpoints ───────────────────────────────────────────────────────
+
     @MessageMapping("/lobby/create")
     public void handleCreateLobby(CreateLobbyMessage message) {
+        handleCreateLobby(message, null);
+    }
+
+    public void handleCreateLobby(CreateLobbyMessage message,
+                                  @Header(value = "simpSessionId", required = false) String sessionId) {
+        if (denyIfUnauthorized(sessionId, message.getUserId(), null)) return;
         try {
             User host = new User(message.getUserId(), message.getNickName());
             Lobby lobby = lobbyService.createLobby(message.getLobbyName(), host);
+            playerSessionService.playerJoinedLobby(message.getUserId(), lobby.getId());
             LobbyResponse response = new LobbyResponse(true, message.getNickName() + "'s Lobby created", lobby.getId(), lobby);
-
             sendToUser(message.getUserId(), response);
             broadcastToGlobalLobbyList(response);
         } catch (Exception e) {
@@ -151,13 +196,19 @@ public class WebSocketBrokerController {
 
     @MessageMapping("/lobby/join")
     public void handleJoinLobby(JoinLobbyMessage message) {
+        handleJoinLobby(message, null);
+    }
+
+    public void handleJoinLobby(JoinLobbyMessage message,
+                                @Header(value = "simpSessionId", required = false) String sessionId) {
+        if (denyIfUnauthorized(sessionId, message.getUserId(), message.getLobbyId())) return;
         try {
             User user = new User(message.getUserId(), message.getNickName());
             Lobby lobby = lobbyService.joinLobby(message.getLobbyId(), user);
+            playerSessionService.playerJoinedLobby(message.getUserId(), lobby.getId());
             String hostName = lobby.getHost().nickName();
             String responseMessage = message.getNickName() + " joined " + hostName + "'s Lobby";
             LobbyResponse response = new LobbyResponse(true, responseMessage, lobby.getId(), lobby);
-
             sendToUser(message.getUserId(), response);
             broadcastToSpecificLobby(lobby.getId(), response);
         } catch (Exception e) {
@@ -167,15 +218,23 @@ public class WebSocketBrokerController {
 
     @MessageMapping("/lobby/leave")
     public void handleLeaveLobby(LeaveLobbyMessage message) {
+        handleLeaveLobby(message, null);
+    }
+
+    public void handleLeaveLobby(LeaveLobbyMessage message,
+                                 @Header(value = "simpSessionId", required = false) String sessionId) {
+        if (denyIfUnauthorized(sessionId, message.getUserId(), message.getLobbyId())) return;
         try {
             Lobby lobbyBefore = lobbyService.getLobby(message.getLobbyId());
             User leavingUser = (lobbyBefore != null) ? lobbyBefore.getUsers().stream()
                     .filter(u -> u.id().equals(message.getUserId()))
                     .findFirst().orElse(null) : null;
             String leavingUserName = (leavingUser != null) ? leavingUser.nickName() : "Unknown";
-            String hostNameBefore = (lobbyBefore != null && lobbyBefore.getHost() != null) ? lobbyBefore.getHost().nickName() : "Unknown";
+            String hostNameBefore = (lobbyBefore != null && lobbyBefore.getHost() != null)
+                    ? lobbyBefore.getHost().nickName() : "Unknown";
 
             lobbyService.leaveLobby(message.getLobbyId(), message.getUserId());
+            playerSessionService.playerFullyLeft(message.getUserId());
             Lobby updatedLobby = lobbyService.getLobby(message.getLobbyId());
 
             if (updatedLobby == null) {
@@ -197,14 +256,20 @@ public class WebSocketBrokerController {
 
     @MessageMapping("/lobby/delete")
     public void handleDeleteLobby(DeleteLobbyMessage message) {
+        handleDeleteLobby(message, null);
+    }
+
+    public void handleDeleteLobby(DeleteLobbyMessage message,
+                                  @Header(value = "simpSessionId", required = false) String sessionId) {
+        if (denyIfUnauthorized(sessionId, message.getRequesterId(), message.getLobbyId())) return;
         try {
             Lobby lobbyBefore = lobbyService.getLobby(message.getLobbyId());
-            String hostName = (lobbyBefore != null && lobbyBefore.getHost() != null) ? lobbyBefore.getHost().nickName() : "Unknown";
-
+            String hostName = (lobbyBefore != null && lobbyBefore.getHost() != null)
+                    ? lobbyBefore.getHost().nickName() : "Unknown";
             lobbyService.deleteLobby(message.getLobbyId(), message.getRequesterId());
+            playerSessionService.playerFullyLeft(message.getRequesterId());
             String responseMessage = hostName + " deleted the Lobby";
             LobbyResponse response = new LobbyResponse(true, responseMessage, message.getLobbyId(), null);
-
             sendToUser(message.getRequesterId(), response);
             broadcastToSpecificLobby(message.getLobbyId(), response);
             broadcastToGlobalLobbyList(response);
@@ -215,22 +280,27 @@ public class WebSocketBrokerController {
 
     @MessageMapping("/lobby/kick")
     public void handleKickPlayer(KickPlayerMessage message) {
+        handleKickPlayer(message, null);
+    }
+
+    public void handleKickPlayer(KickPlayerMessage message,
+                                 @Header(value = "simpSessionId", required = false) String sessionId) {
+        if (denyIfUnauthorized(sessionId, message.getRequesterId(), message.getLobbyId())) return;
         try {
             Lobby lobbyBefore = lobbyService.getLobby(message.getLobbyId());
             User targetUser = lobbyBefore.getUsers().stream()
                     .filter(u -> u.id().equals(message.getTargetUserId()))
                     .findFirst().orElse(null);
             String targetNickName = (targetUser != null) ? targetUser.nickName() : "Unknown";
-
             Lobby lobby = lobbyService.kickPlayer(
                     message.getLobbyId(),
                     message.getRequesterId(),
                     message.getTargetUserId()
             );
+            playerSessionService.playerFullyLeft(message.getTargetUserId());
             String hostName = lobby.getHost().nickName();
             String responseMessage = targetNickName + " was kicked out of " + hostName + "'s Lobby";
             LobbyResponse response = new LobbyResponse(true, responseMessage, lobby.getId(), lobby);
-
             sendToUser(message.getTargetUserId(), response);
             broadcastToSpecificLobby(lobby.getId(), response);
         } catch (Exception e) {
@@ -240,6 +310,12 @@ public class WebSocketBrokerController {
 
     @MessageMapping("/lobby/setRole")
     public void handleSetRole(SetRoleMessage message) {
+        handleSetRole(message, null);
+    }
+
+    public void handleSetRole(SetRoleMessage message,
+                              @Header(value = "simpSessionId", required = false) String sessionId) {
+        if (denyIfUnauthorized(sessionId, message.getRequesterId(), message.getLobbyId())) return;
         try {
             Lobby lobby = lobbyService.setRole(
                     message.getLobbyId(),
@@ -260,17 +336,21 @@ public class WebSocketBrokerController {
 
     @MessageMapping("/lobby/startRoleSelection")
     public void handleStartRoleSelection(StartRoleSelectionMessage message) {
+        handleStartRoleSelection(message, null);
+    }
+
+    public void handleStartRoleSelection(StartRoleSelectionMessage message,
+                                         @Header(value = "simpSessionId", required = false) String sessionId) {
+        if (denyIfUnauthorized(sessionId, message.getRequesterId(), message.getLobbyId())) return;
         try {
             Lobby lobby = lobbyService.getLobby(message.getLobbyId());
             if (lobby == null) throw new IllegalArgumentException("Lobby not found");
             if (!lobby.getHostId().equals(message.getRequesterId()))
                 throw new IllegalStateException("Only host can start role selection");
-
             lobby.setLocked(true);
             String hostName = lobby.getHost().nickName();
             String responseMessage = hostName + " started role selection";
             LobbyResponse response = new LobbyResponse(true, responseMessage, lobby.getId(), lobby);
-
             sendToUser(message.getRequesterId(), response);
             broadcastToSpecificLobby(lobby.getId(), response);
         } catch (Exception e) {
@@ -280,9 +360,13 @@ public class WebSocketBrokerController {
 
     @MessageMapping("/lobby/startGame")
     public void handleStartGame(StartGameMessage message) {
-        if (message == null) {
-            return;
-        }
+        handleStartGame(message, null);
+    }
+
+    public void handleStartGame(StartGameMessage message,
+                                @Header(value = "simpSessionId", required = false) String sessionId) {
+        if (message == null) return;
+        if (denyIfUnauthorized(sessionId, message.getRequesterId(), message.getLobbyId())) return;
         try {
             Lobby lobby = lobbyService.getLobby(message.getLobbyId());
             if (lobby == null) throw new IllegalArgumentException("Lobby not found");
@@ -297,13 +381,110 @@ public class WebSocketBrokerController {
             gameState.initializePlayersFromLobby(lobby);
             gameController.addGame(lobby.getId(), gameState);
 
-            broadcastToSpecificLobby(lobby.getId(), new LobbyResponse(true, "GAME_STARTED", lobby.getId(), lobby));
+            lobby.getUsers().forEach(u ->
+                    playerSessionService.playerJoinedGame(u.id(), lobby.getId()));
 
+            broadcastToSpecificLobby(lobby.getId(), new LobbyResponse(true, "GAME_STARTED", lobby.getId(), lobby));
             broadcastGameState(lobby.getId(), gameState);
         } catch (Exception e) {
             sendToUser(message.getRequesterId(), new LobbyResponse(false, e.getMessage(), message.getLobbyId(), null));
         }
     }
+
+    @MessageMapping("/lobby/backToLobby")
+    public void handleBackToLobby(BackToLobbyMessage message) {
+        handleBackToLobby(message, null);
+    }
+
+    public void handleBackToLobby(BackToLobbyMessage message,
+                                  @Header(value = "simpSessionId", required = false) String sessionId) {
+        if (denyIfUnauthorized(sessionId, message.getRequesterId(), message.getLobbyId())) return;
+        try {
+            Lobby lobby = lobbyService.getLobby(message.getLobbyId());
+            if (lobby == null) throw new IllegalArgumentException("Lobby not found");
+            if (!lobby.getHostId().equals(message.getRequesterId()))
+                throw new IllegalStateException("Only host can go back to lobby");
+            lobby.setLocked(false);
+            String hostName = lobby.getHost().nickName();
+            String responseMessage = hostName + " returned to Lobby";
+            LobbyResponse response = new LobbyResponse(true, responseMessage, lobby.getId(), lobby);
+            sendToUser(message.getRequesterId(), response);
+            broadcastToSpecificLobby(lobby.getId(), response);
+        } catch (Exception e) {
+            sendToUser(message.getRequesterId(), new LobbyResponse(false, e.getMessage(), message.getLobbyId(), null));
+        }
+    }
+
+    // ── Game State Recovery endpoints ─────────────────────────────────────────
+
+    @MessageMapping("/lobby/rejoin")
+    public void handleRejoinLobby(RejoinLobbyMessage message) {
+        handleRejoinLobby(message, null);
+    }
+
+    public void handleRejoinLobby(RejoinLobbyMessage message,
+                                  @Header(value = "simpSessionId", required = false) String sessionId) {
+        if (denyIfUnauthorized(sessionId, message.getUserId(), null)) return;
+        try {
+            User user = new User(message.getUserId(), message.getNickName());
+            Lobby lobby = lobbyService.rejoinLobby(message.getLobbyId(), user);
+            playerSessionService.playerJoinedLobby(message.getUserId(), lobby.getId());
+            LobbyResponse response = new LobbyResponse(true, "Rejoined lobby", lobby.getId(), lobby);
+            sendToUser(message.getUserId(), response);
+            broadcastToSpecificLobby(lobby.getId(), response);
+        } catch (Exception e) {
+            sendToUser(message.getUserId(), new LobbyResponse(false, e.getMessage(), null, null));
+        }
+    }
+
+    @MessageMapping("/game/rejoin")
+    public void handleRejoinGame(RejoinGameMessage message) {
+        handleRejoinGame(message, null);
+    }
+
+    public void handleRejoinGame(RejoinGameMessage message,
+                                 @Header(value = "simpSessionId", required = false) String sessionId) {
+        if (denyIfUnauthorized(sessionId, message.getUserId(), null)) return;
+        try {
+            String gameId = message.getGameId();
+
+            if (gameId == null || gameId.isBlank()) {
+                gameId = playerSessionService.getGameForPlayer(message.getUserId());
+            }
+
+            if (gameId == null) {
+                String lobbyId = playerSessionService.getLobbyForPlayer(message.getUserId());
+                if (lobbyId != null) {
+                    Lobby lobby = lobbyService.getLobby(lobbyId);
+                    if (lobby != null) {
+                        sendToUser(message.getUserId(),
+                                new LobbyResponse(true, "Rejoined lobby", lobby.getId(), lobby));
+                        return;
+                    }
+                }
+                sendToUser(message.getUserId(),
+                        new LobbyResponse(false, "No active game or lobby found", null, null));
+                return;
+            }
+
+            GameState gameState = gameController.getGame(gameId);
+            if (gameState == null) {
+                sendToUser(message.getUserId(),
+                        new LobbyResponse(false, "Game not found", null, null));
+                return;
+            }
+
+            messagingTemplate.convertAndSend(
+                    "/topic/game/" + gameId + "/movements",
+                    GameStateMapper.toDto(gameState)
+            );
+        } catch (Exception e) {
+            sendToUser(message.getUserId(),
+                    new LobbyResponse(false, e.getMessage(), null, null));
+        }
+    }
+
+    // ── Game endpoints ────────────────────────────────────────────────────────
 
     @MessageMapping("/game/{gameId}/state")
     public void handleGetGameState(@DestinationVariable String gameId) {
@@ -313,35 +494,19 @@ public class WebSocketBrokerController {
         }
     }
 
-    @MessageMapping("/lobby/backToLobby")
-    public void handleBackToLobby(BackToLobbyMessage message) {
-        try {
-            Lobby lobby = lobbyService.getLobby(message.getLobbyId());
-            if (lobby == null) throw new IllegalArgumentException("Lobby not found");
-            if (!lobby.getHostId().equals(message.getRequesterId()))
-                throw new IllegalStateException("Only host can go back to lobby");
-
-            lobby.setLocked(false);
-            String hostName = lobby.getHost().nickName();
-            String responseMessage = hostName + " returned to Lobby";
-            LobbyResponse response = new LobbyResponse(true, responseMessage, lobby.getId(), lobby);
-
-            sendToUser(message.getRequesterId(), response);
-            broadcastToSpecificLobby(lobby.getId(), response);
-        } catch (Exception e) {
-            sendToUser(message.getRequesterId(), new LobbyResponse(false, e.getMessage(), message.getLobbyId(), null));
-        }
-    }
-
     @MessageMapping("/game/start-position/request")
     public void handleStartPositionRequest(StartPositionRequest request) {
-        if (request == null) {
-            return; // no recipient address available – silently ignore
-        }
+        handleStartPositionRequest(request, null);
+    }
+
+    public void handleStartPositionRequest(StartPositionRequest request,
+                                           @Header(value = "simpSessionId", required = false) String sessionId) {
+        if (request == null) return;
         String gameId = request.getGameId();
         String playerId = request.getPlayerId();
 
         if (!validateStartPositionIds(gameId, playerId)) return;
+        if (denyIfUnauthorizedGame(sessionId, playerId)) return;
 
         String topic = TOPIC_GAME + gameId + "/player/" + playerId + "/start-position";
         GameState gameState = resolveGameState(gameId, playerId, topic);
@@ -351,23 +516,26 @@ public class WebSocketBrokerController {
             int position = gameState.assignStartPosition(playerId, request.getSelectedStartPosition());
             messagingTemplate.convertAndSend(topic,
                     new StartPositionResponse("START_POSITION_ASSIGNED", gameId, playerId, position, null));
-            // Broadcast the updated board state so every client renders the new figure immediately
             broadcastGameState(gameId, gameState);
         } catch (Exception e) {
             messagingTemplate.convertAndSend(topic,
-                    new StartPositionResponse("ERROR", gameId, playerId, null, e.getMessage()));
+                    new StartPositionResponse(ERROR_TYPE, gameId, playerId, null, e.getMessage()));
         }
     }
 
     @MessageMapping("/game/start-position/confirm")
     public void handleConfirmStartPosition(StartPositionConfirmRequest request) {
-        if (request == null) {
-            return; // no recipient address available – silently ignore
-        }
-        String gameId  = request.getGameId();
+        handleConfirmStartPosition(request, null);
+    }
+
+    public void handleConfirmStartPosition(StartPositionConfirmRequest request,
+                                           @Header(value = "simpSessionId", required = false) String sessionId) {
+        if (request == null) return;
+        String gameId = request.getGameId();
         String playerId = request.getPlayerId();
 
         if (!validateStartPositionIds(gameId, playerId)) return;
+        if (denyIfUnauthorizedGame(sessionId, playerId)) return;
 
         String playerTopic = TOPIC_GAME + gameId + "/player/" + playerId + "/start-position";
         GameState gameState = resolveGameState(gameId, playerId, playerTopic);
@@ -375,19 +543,21 @@ public class WebSocketBrokerController {
 
         try {
             int confirmedPosition = gameState.confirmStartPosition(playerId, request.getStartPosition());
-            // Respond ONLY to the requesting player – no board-state broadcast
             messagingTemplate.convertAndSend(playerTopic,
-                    new StartPositionResponse("START_POSITION_CONFIRMED", gameId, playerId,
-                            confirmedPosition, null));
+                    new StartPositionResponse("START_POSITION_CONFIRMED", gameId, playerId, confirmedPosition, null));
         } catch (Exception e) {
             messagingTemplate.convertAndSend(playerTopic,
-                    new StartPositionResponse("ERROR", gameId, playerId, null, e.getMessage()));
+                    new StartPositionResponse(ERROR_TYPE, gameId, playerId, null, e.getMessage()));
         }
     }
 
     @MessageMapping("/game/{gameId}/move")
     public void handleMove(@DestinationVariable String gameId, @Payload MovementMessage movement) {
+        handleMove(gameId, movement, null);
+    }
 
+    public void handleMove(@DestinationVariable String gameId, @Payload MovementMessage movement,
+                           @Header(value = "simpSessionId", required = false) String sessionId) {
         if (movement == null) {
             sendMoveResponse(gameId, new MovementResponse(false, "NULL MESSAGE", 0, null));
             return;
@@ -396,6 +566,7 @@ public class WebSocketBrokerController {
             sendMoveResponse(gameId, new MovementResponse(false, "Invalid movement data: No player ID", 0, null));
             return;
         }
+        if (denyIfUnauthorizedGame(sessionId, movement.getPlayerId())) return;
 
         GameState gameState = gameController.getGame(gameId);
 
@@ -496,11 +667,43 @@ public class WebSocketBrokerController {
 
             String extra = (isMrX && gameState.getRoundController().isDoubleMoveActive())
                     ? " (1 move remaining due to double move ticket)" : "";
-
             sendMoveResponse(gameId, new MovementResponse(true, "Movement successful" + extra, gameState.getPlayerPosition(movement.getPlayerId()), null));
 
         } catch (Exception e) {
             sendToUser(movement.getPlayerId(), new MovementResponse(false, "Error: " + e.getMessage(), 0, null));
+        }
+    }
+
+    @MessageMapping("/game/kickPlayer")
+    public void handleKickPlayerInGame(KickPlayerInGameMessage message) {
+        handleKickPlayerInGame(message, null);
+    }
+
+    public void handleKickPlayerInGame(KickPlayerInGameMessage message,
+                                       @Header(value = "simpSessionId", required = false) String sessionId) {
+        if (denyIfUnauthorizedGame(sessionId, message.getRequesterId())) return;
+        try {
+            GameState gameState = gameController.getGame(message.getGameId());
+            if (gameState == null) {
+                sendToUser(message.getRequesterId(), new MovementResponse(false, "Game not found", 0, null));
+                return;
+            }
+            String result = gameState.kickPlayer(message.getRequesterId(), message.getTargetId());
+            broadcastGameState(message.getGameId(), gameState);
+
+            switch (result) {
+                case "MRX_KICKED" -> {
+                    broadcastGameOver(message.getGameId(), "DETECTIVES_WIN");
+                    gameController.removeGame(message.getGameId());
+                }
+                case "TOO_FEW_PLAYERS" -> {
+                    broadcastGameOver(message.getGameId(), "DETECTIVES_WIN");
+                    gameController.removeGame(message.getGameId());
+                }
+                default -> { /* continue game */ }
+            }
+        } catch (Exception e) {
+            sendToUser(message.getRequesterId(), new MovementResponse(false, e.getMessage(), 0, null));
         }
     }
 }

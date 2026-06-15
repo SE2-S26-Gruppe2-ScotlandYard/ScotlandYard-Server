@@ -26,6 +26,8 @@ public class GameState {
     private final Map<String, Player> players = new HashMap<>();
     protected Map<String, Integer> playerPositions = new HashMap<>();
     private String mrXId;
+    @Getter
+    private String hostId;
     public static final int MAX_ROUNDS = 22;
     private final Random RANDOM = new Random();     //NOSONAR not used in secure contexts
     private final List<TicketType> mrXMoveHistory = new ArrayList<>(MAX_ROUNDS + 2);    // 2 = MAX_DOUBLE_TICKET
@@ -44,6 +46,7 @@ public class GameState {
      * e.g. during development or testing.
      */
     public void initializePlayersFromLobby(Lobby lobby) {
+        this.hostId = lobby.getHostId();
         for (User user : lobby.getUsers()) {
             Role role = lobby.getSelectedRole(user.id());
             Player player;
@@ -59,6 +62,32 @@ public class GameState {
                 .filter(id -> !id.equals(mrXId))
                 .collect(Collectors.toSet());
         roundController.initDetectives(detectiveIds);
+    }
+
+    /**
+     * Removes a player from the running game (used when host kicks a disconnected player).
+     * Returns the result type after kick: "MRX_KICKED" if MrX was kicked,
+     * "TOO_FEW_PLAYERS" if less than 3 players remain, or "CONTINUE" otherwise.
+     */
+    public String kickPlayer(String requesterId, String targetId) {
+        if (!requesterId.equals(hostId)) {
+            throw new IllegalStateException("Only the host can kick players");
+        }
+        if (!players.containsKey(targetId)) {
+            throw new IllegalArgumentException("Player not in game");
+        }
+        boolean wasMrX = targetId.equals(mrXId);
+        players.remove(targetId);
+        playerPositions.remove(targetId);
+        if (!wasMrX) roundController.lockDetective(targetId);
+
+        if (wasMrX) {
+            return "MRX_KICKED";
+        }
+        if (players.size() < 2) {
+            return "TOO_FEW_PLAYERS";
+        }
+        return "CONTINUE";
     }
 
     public int assignStartPosition(String playerId) {
@@ -277,6 +306,14 @@ public class GameState {
 
     public Integer getPlayerPosition(String playerId) {
         return playerPositions.get(playerId);
+    }
+
+    public Map<String, String> getPlayerNames() {
+        Map<String, String> names = new HashMap<>();
+        for (Map.Entry<String, Player> entry : players.entrySet()) {
+            names.put(entry.getKey(), entry.getValue().getPlayerName());
+        }
+        return names;
     }
 
     public Player getPlayer(String playerId) {
