@@ -1,6 +1,6 @@
 package at.aau.serg.websocketdemoserver.dtos.game;
 
-public class DeleteGameMessage {    // TODO: Testing
+public class DeleteGameMessage {
     private String gameId;
     private String requesterId;
 

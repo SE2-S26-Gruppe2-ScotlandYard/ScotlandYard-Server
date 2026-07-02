@@ -63,7 +63,7 @@ public class StompDisconnectListener implements ApplicationListener<SessionDisco
                 if (newHostId != null) {
                     log.info("Host of game {} disconnected - reassigned host to {}", gameId, newHostId);
                 }
-                GameStateDto dto = GameStateMapper.toDto(gameState, sessionAuthService.getDisconnectedUsers());
+                GameStateDto dto = GameStateMapper.toDto(gameState, sessionAuthService.getDisconnectedUsers()); // Testing end
 
                 messagingTemplate.convertAndSend("/topic/game/" + gameId + "/movements", dto);
             }

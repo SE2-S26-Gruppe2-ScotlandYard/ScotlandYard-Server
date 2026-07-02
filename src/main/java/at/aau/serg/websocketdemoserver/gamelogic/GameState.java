@@ -97,7 +97,7 @@ public class GameState {
      * hostId changes.
      * Does nothing (returns null) if {disconnectedUserId} is not the host.
      */
-    public String reassignHostIfNeeded(String disconnectedUserId, Set<String> connectedUserIds) {   // TODO: Testing
+    public String reassignHostIfNeeded(String disconnectedUserId, Set<String> connectedUserIds) {
         if (disconnectedUserId == null || !disconnectedUserId.equals(hostId)) {
             return null;
         }

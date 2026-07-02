@@ -172,7 +172,7 @@ public class WebSocketBrokerController {
 
     @MessageMapping("/user/rename")
     @SendToUser("/topic/user-response")
-    public UserConnectResponse handleRenameUser(RenameUserMessage message, @Header(value = "simpSessionId", required = false) String sessionId) {  // TODO: Testing
+    public UserConnectResponse handleRenameUser(RenameUserMessage message, @Header(value = "simpSessionId", required = false) String sessionId) {
         if (!sessionAuthService.isAuthorized(sessionId, message.getUserId())) {
             return new UserConnectResponse(false, UNAUTHORIZED_MSG, null);
         }
@@ -721,12 +721,12 @@ public class WebSocketBrokerController {
         }
     }
 
-    @MessageMapping("/game/delete") // TODO: Testing
+    @MessageMapping("/game/delete")
     public void handleDeleteGame(DeleteGameMessage message) {
         handleDeleteGame(message, null);
     }
 
-    public void handleDeleteGame(DeleteGameMessage message, @Header(value = "simpSessionId", required = false) String sessionId) {  // TODO: TESTING
+    public void handleDeleteGame(DeleteGameMessage message, @Header(value = "simpSessionId", required = false) String sessionId) {
         if (denyIfUnauthorizedGame(sessionId, message.getRequesterId())) return;
         try {
             GameState gameState = gameController.getGame(message.getGameId());

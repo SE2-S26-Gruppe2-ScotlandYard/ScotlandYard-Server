@@ -18,7 +18,7 @@ public class UserService {
     private final Map<String, User> usersById = new ConcurrentHashMap<>();
     private final Map<String, String> nicknameToUserId = new ConcurrentHashMap<>();
 
-    public synchronized User registerUser(String nickName, String existingUserId) { // TODO: Fix Tests
+    public synchronized User registerUser(String nickName, String existingUserId) {
         if (existingUserId != null && !existingUserId.isBlank()) {
             User existing = usersById.get(existingUserId);
             if (existing != null) {
@@ -64,13 +64,16 @@ public class UserService {
     }
 
     public synchronized void unregisterUser(String userId) {
+        if (userId == null || userId.isBlank()) {
+            return;
+        }
         User removed = usersById.remove(userId);
         if (removed != null) {
             nicknameToUserId.remove(removed.nickName().toLowerCase(), userId);
         }
     }
 
-    public synchronized User renameUser(String userId, String newNickName) {    // TODO: Testing
+    public synchronized User renameUser(String userId, String newNickName) {
         User existing = usersById.get(userId);
         if (existing == null) {
             throw new IllegalArgumentException("User not found");

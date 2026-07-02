@@ -4,6 +4,8 @@ import at.aau.serg.websocketdemoserver.dtos.game.GameStateDto;
 import at.aau.serg.websocketdemoserver.dtos.game.StartPositionConfirmRequest;
 import at.aau.serg.websocketdemoserver.dtos.game.StartPositionRequest;
 import at.aau.serg.websocketdemoserver.dtos.game.StartPositionResponse;
+import at.aau.serg.websocketdemoserver.dtos.game.KickPlayerInGameMessage;
+import at.aau.serg.websocketdemoserver.dtos.game.DeleteGameMessage;
 import at.aau.serg.websocketdemoserver.dtos.StompMessage;
 import at.aau.serg.websocketdemoserver.dtos.lobby.*;
 import at.aau.serg.websocketdemoserver.dtos.movement.MovementMessage;
@@ -561,16 +563,39 @@ class WebSocketBrokerControllerTest {
     }
 
     @Test
-    void testHandleUserConnect_duplicateNickname_returnsExistingUser() {
+    void testHandleUserConnect_reconnectWithSameUserId_returnsSameIdentity() {
         UserConnectMessage first = new UserConnectMessage();
         first.setNickName("dupetest");
-        controller.handleUserConnect(first, null);
+        UserConnectResponse firstResponse = controller.handleUserConnect(first, null);
+        String userId = firstResponse.getUser().id();
 
+        // Same device reconnecting: sends back the userId it received before.
         UserConnectMessage second = new UserConnectMessage();
-        second.setNickName(first.getNickName());
+        second.setUserId(userId);
         UserConnectResponse response = controller.handleUserConnect(second, null);
+
         assertTrue(response.isSuccess());
+        assertEquals(userId, response.getUser().id());
         assertEquals("dupetest", response.getUser().nickName());
+    }
+
+    @Test
+    void testHandleUserConnect_sameNicknameFromDifferentDevice_isRejected() {
+        // Regression test for the userId/UUID identity fix: two different
+        // devices (neither sending an existingUserId) must never be allowed to
+        // collide on the same nickname/identity.
+        UserConnectMessage deviceA = new UserConnectMessage();
+        deviceA.setNickName("dupetest");
+        UserConnectResponse responseA = controller.handleUserConnect(deviceA, null);
+        assertTrue(responseA.isSuccess());
+
+        UserConnectMessage deviceB = new UserConnectMessage();
+        deviceB.setNickName("dupetest");
+        UserConnectResponse responseB = controller.handleUserConnect(deviceB, null);
+
+        assertFalse(responseB.isSuccess());
+        assertEquals("Nickname already taken", responseB.getMessage());
+        assertNull(responseB.getUser());
     }
 
     @Test
@@ -1338,5 +1363,291 @@ class WebSocketBrokerControllerTest {
                 argThat((LobbyResponse r) -> !r.isSuccess()
                         && "Exactly one player must play as Mr. X".equals(r.getMessage()))
         );
+    }
+
+    private WebSocketBrokerController controllerWithSharedAuth(at.aau.serg.websocketdemoserver.service.SessionAuthService sharedAuth) {
+        return new WebSocketBrokerController(
+                messagingTemplate,
+                GameController.getInstance(),
+                new at.aau.serg.websocketdemoserver.service.LobbyService(),
+                new at.aau.serg.websocketdemoserver.service.UserService(),
+                new at.aau.serg.websocketdemoserver.service.PlayerSessionService(),
+                sharedAuth
+        );
+    }
+
+    @Test
+    void testHandleRenameUser_success() {
+        UserConnectMessage connectMsg = new UserConnectMessage();
+        connectMsg.setNickName("original");
+        UserConnectResponse connectResponse = controller.handleUserConnect(connectMsg, null);
+        String userId = connectResponse.getUser().id();
+
+        RenameUserMessage renameMsg = new RenameUserMessage(userId, "renamed");
+        UserConnectResponse response = controller.handleRenameUser(renameMsg, null);
+
+        assertTrue(response.isSuccess());
+        assertEquals("Nickname updated", response.getMessage());
+        assertEquals(userId, response.getUser().id());
+        assertEquals("renamed", response.getUser().nickName());
+    }
+
+    @Test
+    void testHandleRenameUser_unauthorizedSessionIsRejected() {
+        at.aau.serg.websocketdemoserver.service.SessionAuthService sharedAuth =
+                new at.aau.serg.websocketdemoserver.service.SessionAuthService();
+        WebSocketBrokerController authController = controllerWithSharedAuth(sharedAuth);
+
+        UserConnectMessage connectMsg = new UserConnectMessage();
+        connectMsg.setNickName("original");
+        UserConnectResponse connectResponse = authController.handleUserConnect(connectMsg, "session-A");
+        String userId = connectResponse.getUser().id();
+
+        RenameUserMessage renameMsg = new RenameUserMessage(userId, "hijacked");
+        UserConnectResponse response = authController.handleRenameUser(renameMsg, "session-B");
+
+        assertFalse(response.isSuccess());
+        assertEquals("Unauthorized: You can only act on your own behalf", response.getMessage());
+        assertNull(response.getUser());
+    }
+
+    @Test
+    void testHandleRenameUser_ownSessionIsAllowed() {
+        at.aau.serg.websocketdemoserver.service.SessionAuthService sharedAuth =
+                new at.aau.serg.websocketdemoserver.service.SessionAuthService();
+        WebSocketBrokerController authController = controllerWithSharedAuth(sharedAuth);
+
+        UserConnectMessage connectMsg = new UserConnectMessage();
+        connectMsg.setNickName("original");
+        UserConnectResponse connectResponse = authController.handleUserConnect(connectMsg, "session-A");
+        String userId = connectResponse.getUser().id();
+
+        RenameUserMessage renameMsg = new RenameUserMessage(userId, "renamed");
+        UserConnectResponse response = authController.handleRenameUser(renameMsg, "session-A");
+
+        assertTrue(response.isSuccess());
+        assertEquals("renamed", response.getUser().nickName());
+    }
+
+    @Test
+    void testHandleRenameUser_unknownUserId_returnsError() {
+        RenameUserMessage renameMsg = new RenameUserMessage("does-not-exist", "renamed");
+        UserConnectResponse response = controller.handleRenameUser(renameMsg, null);
+
+        assertFalse(response.isSuccess());
+        assertEquals("User not found", response.getMessage());
+    }
+
+    @Test
+    void testHandleRenameUser_nicknameAlreadyTakenByAnotherActiveUser_returnsError() {
+        UserConnectMessage first = new UserConnectMessage();
+        first.setNickName("alice");
+        controller.handleUserConnect(first, null);
+
+        UserConnectMessage second = new UserConnectMessage();
+        second.setNickName("bob");
+        UserConnectResponse bobResponse = controller.handleUserConnect(second, null);
+
+        RenameUserMessage renameMsg = new RenameUserMessage(bobResponse.getUser().id(), "alice");
+        UserConnectResponse response = controller.handleRenameUser(renameMsg, null);
+
+        assertFalse(response.isSuccess());
+        assertEquals("Nickname already taken", response.getMessage());
+    }
+
+    @Test
+    void testHandleRenameUser_invalidNickname_returnsError() {
+        UserConnectMessage connectMsg = new UserConnectMessage();
+        connectMsg.setNickName("original");
+        UserConnectResponse connectResponse = controller.handleUserConnect(connectMsg, null);
+
+        RenameUserMessage renameMsg = new RenameUserMessage(connectResponse.getUser().id(), "way!too!invalid");
+        UserConnectResponse response = controller.handleRenameUser(renameMsg, null);
+
+        assertFalse(response.isSuccess());
+        assertNull(response.getUser());
+    }
+
+    @Test
+    void testHandleDeleteGame_hostCanDelete_broadcastsGameOverAndRemovesGame() {
+        String lobbyId = createReadyLobbyAndGetId();
+        controller.handleStartGame(new StartGameMessage(lobbyId, "host-1"));
+        assertNotNull(GameController.getInstance().getGame(lobbyId));
+
+        DeleteGameMessage deleteMsg = new DeleteGameMessage();
+        deleteMsg.setGameId(lobbyId);
+        deleteMsg.setRequesterId("host-1");
+        controller.handleDeleteGame(deleteMsg);
+
+        verify(messagingTemplate).convertAndSend(eq("/topic/game/" + lobbyId + "/over"), eq("GAME_DELETED"));
+        assertNull(GameController.getInstance().getGame(lobbyId));
+    }
+
+    @Test
+    void testHandleDeleteGame_nonHostCannotDelete() {
+        String lobbyId = createReadyLobbyAndGetId();
+        controller.handleStartGame(new StartGameMessage(lobbyId, "host-1"));
+
+        DeleteGameMessage deleteMsg = new DeleteGameMessage();
+        deleteMsg.setGameId(lobbyId);
+        deleteMsg.setRequesterId("player-2");
+        controller.handleDeleteGame(deleteMsg);
+
+        verify(messagingTemplate).convertAndSend(
+                eq("/topic/player/player-2"),
+                argThat((Object payload) -> payload instanceof MovementResponse r
+                        && !r.isSuccess()
+                        && "Only the host can delete the game".equals(r.getMessage()))
+        );
+        assertNotNull(GameController.getInstance().getGame(lobbyId));
+
+        GameController.getInstance().removeGame(lobbyId);
+    }
+
+    @Test
+    void testHandleDeleteGame_gameNotFound_sendsErrorToRequester() {
+        DeleteGameMessage deleteMsg = new DeleteGameMessage();
+        deleteMsg.setGameId("does-not-exist");
+        deleteMsg.setRequesterId("host-1");
+        controller.handleDeleteGame(deleteMsg);
+
+        verify(messagingTemplate).convertAndSend(
+                eq("/topic/player/host-1"),
+                argThat((MovementResponse r) -> !r.isSuccess() && "Game not found".equals(r.getMessage()))
+        );
+    }
+
+    @Test
+    void testHandleDeleteGame_alsoDeletesTheAssociatedLobby() {
+        at.aau.serg.websocketdemoserver.service.LobbyService sharedLobbyService =
+                new at.aau.serg.websocketdemoserver.service.LobbyService();
+        WebSocketBrokerController ctrl = new WebSocketBrokerController(
+                messagingTemplate,
+                GameController.getInstance(),
+                sharedLobbyService,
+                new at.aau.serg.websocketdemoserver.service.UserService(),
+                new at.aau.serg.websocketdemoserver.service.PlayerSessionService(),
+                new at.aau.serg.websocketdemoserver.service.SessionAuthService()
+        );
+
+        CreateLobbyMessage createMsg = new CreateLobbyMessage("TestLobby", "host-1", "Host");
+        ctrl.handleCreateLobby(createMsg);
+        var captor = ArgumentCaptor.forClass(LobbyResponse.class);
+        verify(messagingTemplate, atLeastOnce()).convertAndSend(eq("/topic/lobby"), captor.capture());
+        String lobbyId = captor.getValue().getLobbyId();
+
+        ctrl.handleJoinLobby(new JoinLobbyMessage(lobbyId, "player-2", "Player2"));
+        ctrl.handleSetRole(new SetRoleMessage(lobbyId, "host-1", "host-1", "MRX"));
+        ctrl.handleSetRole(new SetRoleMessage(lobbyId, "player-2", "player-2", "DETECTIVE"));
+        ctrl.handleStartGame(new StartGameMessage(lobbyId, "host-1"));
+        assertNotNull(sharedLobbyService.getLobby(lobbyId));
+
+        DeleteGameMessage deleteMsg = new DeleteGameMessage();
+        deleteMsg.setGameId(lobbyId);
+        deleteMsg.setRequesterId("host-1");
+        ctrl.handleDeleteGame(deleteMsg);
+
+        assertNull(sharedLobbyService.getLobby(lobbyId));
+        assertNull(GameController.getInstance().getGame(lobbyId));
+    }
+
+    @Test
+    void testHandleKickPlayerInGame_gameNotFound_sendsErrorToRequester() {
+        KickPlayerInGameMessage kickMsg = new KickPlayerInGameMessage();
+        kickMsg.setGameId("does-not-exist");
+        kickMsg.setRequesterId("host-1");
+        kickMsg.setTargetId("player-2");
+        controller.handleKickPlayerInGame(kickMsg);
+
+        verify(messagingTemplate).convertAndSend(
+                eq("/topic/player/host-1"),
+                argThat((MovementResponse r) -> !r.isSuccess() && "Game not found".equals(r.getMessage()))
+        );
+    }
+
+    @Test
+    void testHandleKickPlayerInGame_nonHostCannotKick() {
+        String lobbyId = createReadyLobbyAndGetId();
+        controller.handleStartGame(new StartGameMessage(lobbyId, "host-1"));
+
+        KickPlayerInGameMessage kickMsg = new KickPlayerInGameMessage();
+        kickMsg.setGameId(lobbyId);
+        kickMsg.setRequesterId("player-2");
+        kickMsg.setTargetId("host-1");
+        controller.handleKickPlayerInGame(kickMsg);
+
+        verify(messagingTemplate).convertAndSend(
+                eq("/topic/player/player-2"),
+                argThat((Object payload) -> payload instanceof MovementResponse r && !r.isSuccess())
+        );
+        assertNotNull(GameController.getInstance().getGame(lobbyId));
+
+        GameController.getInstance().removeGame(lobbyId);
+    }
+
+    @Test
+    void testHandleKickPlayerInGame_detectiveKicked_continuesGame() {
+        CreateLobbyMessage createMsg = new CreateLobbyMessage("TestLobby", "host-1", "Host");
+        controller.handleCreateLobby(createMsg);
+        var captor = ArgumentCaptor.forClass(LobbyResponse.class);
+        verify(messagingTemplate, atLeastOnce()).convertAndSend(eq("/topic/lobby"), captor.capture());
+        String lobbyId = captor.getValue().getLobbyId();
+
+        controller.handleJoinLobby(new JoinLobbyMessage(lobbyId, "player-2", "Player2"));
+        controller.handleJoinLobby(new JoinLobbyMessage(lobbyId, "player-3", "Player3"));
+        controller.handleSetRole(new SetRoleMessage(lobbyId, "host-1", "host-1", "MRX"));
+        controller.handleSetRole(new SetRoleMessage(lobbyId, "player-2", "player-2", "DETECTIVE"));
+        controller.handleSetRole(new SetRoleMessage(lobbyId, "player-3", "player-3", "DETECTIVE"));
+        controller.handleStartGame(new StartGameMessage(lobbyId, "host-1"));
+
+        KickPlayerInGameMessage kickMsg = new KickPlayerInGameMessage();
+        kickMsg.setGameId(lobbyId);
+        kickMsg.setRequesterId("host-1");
+        kickMsg.setTargetId("player-2");
+        controller.handleKickPlayerInGame(kickMsg);
+
+        verify(messagingTemplate, never()).convertAndSend(eq("/topic/game/" + lobbyId + "/over"), Optional.ofNullable(any()));
+        assertNotNull(GameController.getInstance().getGame(lobbyId));
+        assertFalse(GameController.getInstance().getGame(lobbyId).getPlayerNames().containsKey("player-2"));
+
+        GameController.getInstance().removeGame(lobbyId);
+    }
+
+    @Test
+    void testHandleKickPlayerInGame_mrXKicked_endsGameAndRemovesIt() {
+        CreateLobbyMessage createMsg = new CreateLobbyMessage("TestLobby", "host-1", "Host");
+        controller.handleCreateLobby(createMsg);
+        var captor = ArgumentCaptor.forClass(LobbyResponse.class);
+        verify(messagingTemplate, atLeastOnce()).convertAndSend(eq("/topic/lobby"), captor.capture());
+        String lobbyId = captor.getValue().getLobbyId();
+
+        controller.handleJoinLobby(new JoinLobbyMessage(lobbyId, "player-2", "Player2"));
+        controller.handleSetRole(new SetRoleMessage(lobbyId, "host-1", "host-1", "DETECTIVE"));
+        controller.handleSetRole(new SetRoleMessage(lobbyId, "player-2", "player-2", "MRX"));
+        controller.handleStartGame(new StartGameMessage(lobbyId, "host-1"));
+
+        KickPlayerInGameMessage kickMsg = new KickPlayerInGameMessage();
+        kickMsg.setGameId(lobbyId);
+        kickMsg.setRequesterId("host-1");
+        kickMsg.setTargetId("player-2");
+        controller.handleKickPlayerInGame(kickMsg);
+
+        verify(messagingTemplate).convertAndSend(eq("/topic/game/" + lobbyId + "/over"), eq("DETECTIVES_WIN"));
+        assertNull(GameController.getInstance().getGame(lobbyId));
+    }
+
+    @Test
+    void testHandleKickPlayerInGame_lastRemainingDetectiveKicked_endsGameAndRemovesIt() {
+        String lobbyId = createReadyLobbyAndGetId();
+        controller.handleStartGame(new StartGameMessage(lobbyId, "host-1"));
+
+        KickPlayerInGameMessage kickMsg = new KickPlayerInGameMessage();
+        kickMsg.setGameId(lobbyId);
+        kickMsg.setRequesterId("host-1");
+        kickMsg.setTargetId("player-2");
+        controller.handleKickPlayerInGame(kickMsg);
+
+        verify(messagingTemplate).convertAndSend(eq("/topic/game/" + lobbyId + "/over"), eq("DETECTIVES_WIN"));
+        assertNull(GameController.getInstance().getGame(lobbyId));
     }
 }

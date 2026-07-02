@@ -123,4 +123,38 @@ class GameControllerTest {
         assertNull(gameController.getGame("game1"));
         assertNull(gameController.getGame("game2"));
     }
+
+    @Test
+    void testGetActiveGamesReturnsEmptyMapInitially() {
+        assertTrue(gameController.getActiveGames().isEmpty());
+    }
+
+    @Test
+    void testGetActiveGamesReturnsAllAddedGames() {
+        GameState mockGameState2 = mock(GameState.class);
+        gameController.addGame("game1", mockGameState);
+        gameController.addGame("game2", mockGameState2);
+
+        var activeGames = gameController.getActiveGames();
+
+        assertEquals(2, activeGames.size());
+        assertEquals(mockGameState, activeGames.get("game1"));
+        assertEquals(mockGameState2, activeGames.get("game2"));
+    }
+
+    @Test
+    void testGetActiveGamesReflectsRemoval() {
+        gameController.addGame("game1", mockGameState);
+        gameController.removeGame("game1");
+
+        assertTrue(gameController.getActiveGames().isEmpty());
+    }
+
+    @Test
+    void testGetActiveGamesIsUnmodifiable() {
+        gameController.addGame("game1", mockGameState);
+        var activeGames = gameController.getActiveGames();
+
+        assertThrows(UnsupportedOperationException.class, () -> activeGames.put("game2", mockGameState));
+    }
 }
