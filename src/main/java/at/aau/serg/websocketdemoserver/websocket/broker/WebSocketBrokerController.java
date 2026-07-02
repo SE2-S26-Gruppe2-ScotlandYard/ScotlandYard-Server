@@ -169,6 +169,23 @@ public class WebSocketBrokerController {
             return new UserConnectResponse(false, "Internal Server Error", null);
         }
     }
+
+    @MessageMapping("/user/rename")
+    @SendToUser("/topic/user-response")
+    public UserConnectResponse handleRenameUser(RenameUserMessage message, @Header(value = "simpSessionId", required = false) String sessionId) {  // TODO: Testing
+        if (!sessionAuthService.isAuthorized(sessionId, message.getUserId())) {
+            return new UserConnectResponse(false, UNAUTHORIZED_MSG, null);
+        }
+        try {
+            User renamed = userService.renameUser(message.getUserId(), message.getNewNickName());
+            return new UserConnectResponse(true, "Nickname updated", renamed);
+        } catch (IllegalArgumentException e) {
+            return new UserConnectResponse(false, e.getMessage(), null);
+        } catch (Exception e) {
+            return new UserConnectResponse(false, "Internal Server Error", null);
+        }
+    }
+
     // ── Lobby endpoints ───────────────────────────────────────────────────────
 
     @MessageMapping("/lobby/create")
