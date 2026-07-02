@@ -17,7 +17,7 @@ public class UserService {
     private final Map<String, User> usersById = new ConcurrentHashMap<>();
     private final Map<String, String> nicknameToUserId = new ConcurrentHashMap<>();
 
-    public synchronized User registerUser(String nickName, String existingUserId) {
+    public synchronized User registerUser(String nickName, String existingUserId) { // TODO: Fix Tests
         if (existingUserId != null && !existingUserId.isBlank()) {
             User existing = usersById.get(existingUserId);
             if (existing != null) {
@@ -67,6 +67,26 @@ public class UserService {
         if (removed != null) {
             nicknameToUserId.remove(removed.nickName().toLowerCase(), userId);
         }
+    }
+
+    public synchronized User renameUser(String userId, String newNickName) {    // TODO: Testing
+        User existing = usersById.get(userId);
+        if (existing == null) {
+            throw new IllegalArgumentException("User not found");
+        }
+
+        String validatedNickname = validateNickname(newNickName);
+
+        String previousOwnerId = nicknameToUserId.get(validatedNickname.toLowerCase());
+        if (previousOwnerId != null && !previousOwnerId.equals(userId) && usersById.containsKey(previousOwnerId)) {
+            throw new IllegalArgumentException("Nickname already taken");
+        }
+
+        User renamed = new User(userId, validatedNickname);
+        usersById.put(userId, renamed);
+        nicknameToUserId.remove(existing.nickName().toLowerCase(), userId);
+        nicknameToUserId.put(validatedNickname.toLowerCase(), userId);
+        return renamed;
     }
 
     public int getActiveUserCount() {
