@@ -90,6 +90,31 @@ public class GameState {
         return "CONTINUE";
     }
 
+    /**
+     * Transfers host privileges to another player still in the game when the
+     * current host disconnects. The disconnected host stays in {players}
+     * (disconnect does not remove them - they can still rejoin), only the
+     * hostId changes.
+     * Does nothing (returns null) if {disconnectedUserId} is not the host.
+     */
+    public String reassignHostIfNeeded(String disconnectedUserId, Set<String> connectedUserIds) {
+        if (disconnectedUserId == null || !disconnectedUserId.equals(hostId)) {
+            return null;
+        }
+        String newHost = players.keySet().stream()
+                .filter(id -> !id.equals(disconnectedUserId))
+                .filter(connectedUserIds::contains)
+                .findFirst()
+                .orElseGet(() -> players.keySet().stream()
+                        .filter(id -> !id.equals(disconnectedUserId))
+                        .findFirst()
+                        .orElse(null));
+        if (newHost != null) {
+            this.hostId = newHost;
+        }
+        return newHost;
+    }
+
     public int assignStartPosition(String playerId) {
         if (!players.containsKey(playerId)) {
             throw new IllegalArgumentException("Player not found: " + playerId);

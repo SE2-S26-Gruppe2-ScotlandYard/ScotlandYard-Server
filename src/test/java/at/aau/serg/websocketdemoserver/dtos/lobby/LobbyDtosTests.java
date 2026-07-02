@@ -570,4 +570,49 @@ class LobbyDtosTests {
         assertThat(m1.hashCode()).isEqualTo(m2.hashCode());
         assertThat(m1).isNotEqualTo(m3);
     }
+
+    @Test
+    void testRenameUserMessageNoArgsConstructor() {
+        RenameUserMessage message = new RenameUserMessage();
+        assertThat(message.getUserId()).isNull();
+        assertThat(message.getNewNickName()).isNull();
+    }
+
+    @Test
+    void testRenameUserMessageAllArgsConstructor() {
+        RenameUserMessage message = new RenameUserMessage("user-1", "NewName");
+        assertThat(message.getUserId()).isEqualTo("user-1");
+        assertThat(message.getNewNickName()).isEqualTo("NewName");
+    }
+
+    @Test
+    void testRenameUserMessageSettersAndGetters() {
+        RenameUserMessage message = new RenameUserMessage();
+        message.setUserId("user-1");
+        message.setNewNickName("NewName");
+
+        assertThat(message.getUserId()).isEqualTo("user-1");
+        assertThat(message.getNewNickName()).isEqualTo("NewName");
+    }
+
+    @Test
+    void testRenameUserMessageEqualsAndHashCode() {
+        RenameUserMessage m1 = new RenameUserMessage("user-1", "NewName");
+        RenameUserMessage m2 = new RenameUserMessage("user-1", "NewName");
+        RenameUserMessage m3 = new RenameUserMessage("user-2", "OtherName");
+
+        assertThat(m1).isEqualTo(m2);
+        assertThat(m1.hashCode()).isEqualTo(m2.hashCode());
+        assertThat(m1).isNotEqualTo(m3);
+        assertThat(m1).isNotEqualTo(null);
+        assertThat(m1).isNotEqualTo(new Object());
+    }
+
+    @Test
+    void testRenameUserMessageCanEqual() {
+        RenameUserMessage m1 = new RenameUserMessage("user-1", "NewName");
+        RenameUserMessage m2 = new RenameUserMessage("user-1", "NewName");
+
+        assertThat(m1.canEqual(m2)).isTrue();
+    }
 }

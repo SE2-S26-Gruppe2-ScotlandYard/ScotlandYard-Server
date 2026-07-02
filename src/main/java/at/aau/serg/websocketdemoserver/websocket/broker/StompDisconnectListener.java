@@ -13,6 +13,9 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 
+import java.util.HashSet;
+import java.util.Set;
+
 /**
  * Listens for STOMP session disconnects. When a user disconnects:
  * 1. Mark the user as disconnected in SessionAuthService
@@ -53,7 +56,15 @@ public class StompDisconnectListener implements ApplicationListener<SessionDisco
         if (gameId != null) {
             GameState gameState = gameController.getGame(gameId);
             if (gameState != null) {
-                GameStateDto dto = GameStateMapper.toDto(gameState);
+
+                Set<String> connectedUserIds = new HashSet<>(gameState.getPlayerNames().keySet());
+                connectedUserIds.removeAll(sessionAuthService.getDisconnectedUsers());
+                String newHostId = gameState.reassignHostIfNeeded(userId, connectedUserIds);
+                if (newHostId != null) {
+                    log.info("Host of game {} disconnected - reassigned host to {}", gameId, newHostId);
+                }
+                GameStateDto dto = GameStateMapper.toDto(gameState, sessionAuthService.getDisconnectedUsers()); // Testing end
+
                 messagingTemplate.convertAndSend("/topic/game/" + gameId + "/movements", dto);
             }
         }

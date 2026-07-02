@@ -1,10 +1,6 @@
 package at.aau.serg.websocketdemoserver.websocket.broker;
 
-import at.aau.serg.websocketdemoserver.dtos.game.GameStateDto;
-import at.aau.serg.websocketdemoserver.dtos.game.RejoinGameMessage;
-import at.aau.serg.websocketdemoserver.dtos.game.StartPositionConfirmRequest;
-import at.aau.serg.websocketdemoserver.dtos.game.StartPositionRequest;
-import at.aau.serg.websocketdemoserver.dtos.game.StartPositionResponse;
+import at.aau.serg.websocketdemoserver.dtos.game.*;
 import at.aau.serg.websocketdemoserver.dtos.StompMessage;
 import at.aau.serg.websocketdemoserver.dtos.lobby.*;
 import at.aau.serg.websocketdemoserver.dtos.movement.MovementMessage;
@@ -28,7 +24,6 @@ import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.messaging.simp.annotation.SendToUser;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
-import at.aau.serg.websocketdemoserver.dtos.game.KickPlayerInGameMessage;
 
 @Controller
 public class WebSocketBrokerController {
@@ -158,7 +153,7 @@ public class WebSocketBrokerController {
     public UserConnectResponse handleUserConnect(UserConnectMessage message,
                                                  @Header(value = "simpSessionId", required = false) String sessionId) {
         try {
-            User user = userService.registerUser(message.getNickName());
+            User user = userService.registerUser(message.getNickName(), message.getUserId());
             boolean isReconnect = message.getUserId() != null && message.getUserId().equals(user.id());
             if (!isReconnect) {
                 String existingSession = sessionAuthService.getSessionForUser(user.id());
@@ -174,6 +169,23 @@ public class WebSocketBrokerController {
             return new UserConnectResponse(false, "Internal Server Error", null);
         }
     }
+
+    @MessageMapping("/user/rename")
+    @SendToUser("/topic/user-response")
+    public UserConnectResponse handleRenameUser(RenameUserMessage message, @Header(value = "simpSessionId", required = false) String sessionId) {
+        if (!sessionAuthService.isAuthorized(sessionId, message.getUserId())) {
+            return new UserConnectResponse(false, UNAUTHORIZED_MSG, null);
+        }
+        try {
+            User renamed = userService.renameUser(message.getUserId(), message.getNewNickName());
+            return new UserConnectResponse(true, "Nickname updated", renamed);
+        } catch (IllegalArgumentException e) {
+            return new UserConnectResponse(false, e.getMessage(), null);
+        } catch (Exception e) {
+            return new UserConnectResponse(false, "Internal Server Error", null);
+        }
+    }
+
     // ── Lobby endpoints ───────────────────────────────────────────────────────
 
     @MessageMapping("/lobby/create")
@@ -704,6 +716,39 @@ public class WebSocketBrokerController {
                 }
                 default -> { /* continue game */ }
             }
+        } catch (Exception e) {
+            sendToUser(message.getRequesterId(), new MovementResponse(false, e.getMessage(), 0, null));
+        }
+    }
+
+    @MessageMapping("/game/delete")
+    public void handleDeleteGame(DeleteGameMessage message) {
+        handleDeleteGame(message, null);
+    }
+
+    public void handleDeleteGame(DeleteGameMessage message, @Header(value = "simpSessionId", required = false) String sessionId) {
+        if (denyIfUnauthorizedGame(sessionId, message.getRequesterId())) return;
+        try {
+            GameState gameState = gameController.getGame(message.getGameId());
+            if (gameState == null) {
+                sendToUser(message.getRequesterId(), new MovementResponse(false, "Game not found", 0, null));
+                return;
+            }
+            if (!message.getRequesterId().equals(gameState.getHostId())) {
+                sendToUser(message.getRequesterId(), new MovementResponse(false, "Only the host can delete the game", 0, null));
+                return;
+            }
+
+            gameController.removeGame(message.getGameId());
+            try {
+                // Lobby-ID entspricht der Game-ID (siehe handleStartGame); Lobby existiert
+                // ggf. noch parallel zum Spiel und muss separat entfernt werden.
+                lobbyService.deleteLobby(message.getGameId(), message.getRequesterId());
+            } catch (Exception ignored) {
+                // Lobby war ggf. bereits entfernt - unkritisch, das Spiel ist bereits gelöscht.
+            }
+
+            broadcastGameOver(message.getGameId(), "GAME_DELETED");
         } catch (Exception e) {
             sendToUser(message.getRequesterId(), new MovementResponse(false, e.getMessage(), 0, null));
         }
