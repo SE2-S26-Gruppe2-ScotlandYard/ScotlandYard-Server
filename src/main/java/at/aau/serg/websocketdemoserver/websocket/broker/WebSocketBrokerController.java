@@ -153,7 +153,7 @@ public class WebSocketBrokerController {
     public UserConnectResponse handleUserConnect(UserConnectMessage message,
                                                  @Header(value = "simpSessionId", required = false) String sessionId) {
         try {
-            User user = userService.registerUser(message.getNickName());
+            User user = userService.registerUser(message.getNickName(), message.getUserId());
             boolean isReconnect = message.getUserId() != null && message.getUserId().equals(user.id());
             if (!isReconnect) {
                 String existingSession = sessionAuthService.getSessionForUser(user.id());
