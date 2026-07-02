@@ -3,6 +3,7 @@ package at.aau.serg.websocketdemoserver.service;
 import at.aau.serg.websocketdemoserver.lobby.User;
 import org.springframework.stereotype.Service;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
@@ -91,5 +92,9 @@ public class UserService {
 
     public int getActiveUserCount() {
         return usersById.size();
+    }
+
+    public Collection<User> getAllUsers() {
+        return java.util.Collections.unmodifiableCollection(usersById.values());
     }
 }

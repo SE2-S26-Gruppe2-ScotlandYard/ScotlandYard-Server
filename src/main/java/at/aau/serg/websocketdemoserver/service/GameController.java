@@ -39,4 +39,8 @@ public class GameController {
     public int getActiveGamesCount() {
         return activeGames.size();
     }
+
+    public Map<String, GameState> getActiveGames() {
+        return java.util.Collections.unmodifiableMap(activeGames);
+    }
 }
